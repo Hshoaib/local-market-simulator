@@ -1,0 +1,828 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Local Market Simulator - Custom Naming</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: #09090b;
+            color: #e2e8f0;
+            margin: 0;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+        }
+
+        .app-container { position: relative; width: 100vw; height: 100vh; }
+        canvas { display: block; width: 100%; height: 100%; cursor: grab; }
+        canvas:active { cursor: grabbing; }
+        canvas.node-hover { cursor: pointer; }
+
+        /* Floating Company Cards Sidebar */
+        .company-sidebar {
+            position: absolute; top: 20px; left: 20px; bottom: 100px; width: 380px;
+            display: flex; flex-direction: column; gap: 15px; overflow-y: auto; pointer-events: none; z-index: 10;
+        }
+        .company-sidebar::-webkit-scrollbar { display: none; }
+
+        .company-card {
+            background: rgba(24, 24, 27, 0.7); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px; padding: 16px;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.4); pointer-events: auto; border-top: 4px solid; flex-shrink: 0; transition: all 0.2s ease;
+        }
+        .company-card.drag-over { border-color: #fbbf24 !important; background: rgba(251, 191, 36, 0.15); transform: scale(1.02); }
+
+        .card-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 4px; }
+        .card-title { font-weight: 700; font-size: 0.95rem; color: #f8fafc; line-height: 1.3; max-width: 140px; }
+        .card-header-actions { display: flex; gap: 4px; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
+
+        .action-btn {
+            background: transparent; border: none; color: #94a3b8; font-weight: bold; cursor: pointer;
+            width: 26px; height: 26px; border-radius: 4px; display: flex; align-items: center; justify-content: center; transition: all 0.2s;
+        }
+        .action-btn:hover { background: rgba(255, 255, 255, 0.1); color: white; }
+        .action-btn.active-merge { color: #fbbf24; background: rgba(251, 191, 36, 0.15); }
+        .action-btn.delete-btn:hover { color: #f87171; background: rgba(248, 113, 113, 0.15); }
+
+        .add-site-btn {
+            background: rgba(255, 255, 255, 0.1); border: none; color: white; padding: 4px 8px;
+            border-radius: 4px; font-size: 0.75rem; font-weight: bold; cursor: pointer; transition: background 0.2s; height: 26px;
+        }
+        .add-site-btn:hover { background: rgba(255, 255, 255, 0.2); }
+
+        .card-body { display: flex; flex-direction: column; margin-top: 8px; }
+
+        .site-row {
+            display: flex; align-items: center; gap: 6px; padding: 6px 4px; border-bottom: 1px solid rgba(255,255,255,0.05);
+            font-size: 0.85rem; border-radius: 4px; transition: background 0.2s; cursor: grab;
+        }
+        .site-row:last-child { border-bottom: none; }
+        .site-row:hover { background: rgba(255, 255, 255, 0.05); }
+        .site-row:active { cursor: grabbing; }
+
+        .drag-handle { color: #475569; font-weight: bold; font-size: 1rem; line-height: 1; padding-right: 2px; user-select: none; width: 12px; }
+        .site-id { width: 30px; color: #94a3b8; font-weight: 600; font-size: 0.75rem; }
+        .site-name { flex: 1; display: flex; }
+        .site-vol { width: 55px; display: flex; }
+        .site-share { width: 45px; text-align: right; font-weight: bold; color: #f8fafc; transition: color 0.3s; }
+        .site-warning { width: 16px; display: flex; align-items: center; justify-content: center; transition: opacity 0.2s; }
+
+        .hint-text { font-size: 0.75rem; color: #64748b; font-style: italic; margin-top: 8px; }
+
+        .vol-input, .name-input {
+            width: 100%; box-sizing: border-box; padding: 4px 6px; background: rgba(0,0,0,0.3); 
+            border: 1px solid rgba(255,255,255,0.1); color: white; border-radius: 4px; 
+            font-family: monospace; font-size: 0.8rem; outline: none; transition: border 0.2s;
+        }
+        .name-input { font-family: inherit; }
+        .vol-input:focus, .name-input:focus { border-color: rgba(255,255,255,0.5); }
+        
+        .site-del-btn {
+            background: transparent; border: none; color: #64748b; cursor: pointer; padding: 4px; border-radius: 4px;
+            display: flex; align-items: center; justify-content: center; transition: all 0.2s; height: 24px; width: 24px;
+        }
+        .site-del-btn:hover { color: #f87171; background: rgba(248, 113, 113, 0.15); }
+
+        /* Top Right Info Button */
+        .info-btn-container { position: absolute; top: 20px; right: 20px; z-index: 10; }
+        .top-icon-btn {
+            background: rgba(24, 24, 27, 0.75); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.1);
+            color: #94a3b8; cursor: pointer; padding: 12px; border-radius: 50%; display: flex; align-items: center;
+            justify-content: center; box-shadow: 0 10px 20px rgba(0,0,0,0.4); transition: all 0.2s;
+        }
+        .top-icon-btn:hover { background: rgba(255,255,255,0.1); color: #f8fafc; transform: scale(1.05); }
+
+        /* Bottom Floating Toolbar */
+        .bottom-toolbar {
+            position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%);
+            background: rgba(24, 24, 27, 0.75); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 16px; padding: 8px 16px;
+            display: flex; gap: 16px; align-items: center; box-shadow: 0 20px 40px rgba(0,0,0,0.6); pointer-events: auto; user-select: none; z-index: 10;
+        }
+
+        .tool-group { display: flex; align-items: center; gap: 6px; background: rgba(0,0,0,0.3); padding: 4px 6px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.05); position: relative; }
+        .divider { width: 1px; height: 24px; background: rgba(255,255,255,0.1); }
+
+        .icon-btn {
+            background: transparent; border: none; color: #94a3b8; cursor: pointer; padding: 8px; border-radius: 8px;
+            display: flex; align-items: center; justify-content: center; transition: all 0.2s; position: relative;
+        }
+        .icon-btn:hover { background: rgba(255,255,255,0.1); color: #f8fafc; }
+        .icon-btn:active { transform: scale(0.95); }
+        
+        .toolbar-label { display: flex; flex-direction: column; align-items: center; justify-content: center; color: #e2e8f0; min-width: 48px; font-size: 0.8rem; font-weight: 600; }
+        .toolbar-label svg { stroke: #94a3b8; margin-bottom: 2px; }
+
+        /* --- Custom Tooltips --- */
+        .custom-tooltip {
+            position: absolute;
+            bottom: calc(100% + 12px);
+            left: 50%;
+            transform: translateX(-50%) translateY(10px);
+            background: rgba(9, 9, 11, 0.95);
+            color: #f8fafc;
+            padding: 6px 10px;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            white-space: nowrap;
+            pointer-events: none;
+            opacity: 0;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            border: 1px solid rgba(255,255,255,0.15);
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+            z-index: 100;
+        }
+        
+        .icon-btn:hover .custom-tooltip, .tool-group:hover .custom-tooltip { opacity: 1; transform: translateX(-50%) translateY(0); }
+        .bottom-toolbar.show-all-tips .custom-tooltip { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+        /* Onboarding Highlight Animation */
+        @keyframes pulse-ring {
+            0% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.8); }
+            70% { box-shadow: 0 0 0 12px rgba(59, 130, 246, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0); }
+        }
+        .highlight-pulse { animation: pulse-ring 1.5s infinite; border-color: #3b82f6 !important; background: rgba(59, 130, 246, 0.2) !important; color: white; }
+
+        /* Modals */
+        .modal-overlay {
+            position: absolute; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); backdrop-filter:blur(6px);
+            display:none; justify-content:center; align-items:center; z-index: 100; opacity: 0; transition: opacity 0.3s;
+        }
+        .modal-overlay.show { display: flex; opacity: 1; }
+        .modal-content {
+            background: #18181b; border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 30px;
+            max-width: 500px; color: #e2e8f0; position: relative; max-height: 80vh; overflow-y: auto; box-shadow: 0 25px 50px rgba(0,0,0,0.5);
+            transform: translateY(20px); transition: transform 0.3s;
+        }
+        .modal-overlay.show .modal-content { transform: translateY(0); }
+        .modal-close { position: absolute; top: 16px; right: 16px; cursor: pointer; background: transparent; border: none; color: #94a3b8; transition: color 0.2s; }
+        .modal-close:hover { color: white; }
+        .modal-content h2 { margin-top: 0; color: #f8fafc; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 10px; }
+        .modal-content h3 { font-size: 1.05rem; color: #fbbf24; margin-bottom: 6px; }
+        .modal-content p { font-size: 0.95rem; line-height: 1.5; color: #cbd5e1; margin-top: 0;}
+        .modal-content ul { font-size: 0.95rem; line-height: 1.5; color: #cbd5e1; padding-left: 20px;}
+        .modal-content li { margin-bottom: 8px; }
+        .math-block { background: #09090b; padding: 12px; border-radius: 6px; font-family: monospace; color: #3b82f6; text-align: center; border: 1px solid rgba(255,255,255,0.05); margin: 15px 0;}
+
+        .company-sidebar:hover ~ canvas, .bottom-toolbar:hover ~ canvas, .info-btn-container:hover ~ canvas { pointer-events: none; }
+    </style>
+</head>
+<body>
+
+    <div class="app-container">
+
+        <div class="modal-overlay" id="helpModal" onclick="closeModals(event)">
+            <div class="modal-content" onclick="event.stopPropagation()">
+                <button class="modal-close" onclick="closeModals(event)"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
+                <h2>Simulator Controls & Features</h2>
+                
+                <h3>Navigation & Editing</h3>
+                <ul>
+                    <li><strong>Pan/Zoom:</strong> Click and drag empty space to pan. Scroll mouse wheel to zoom.</li>
+                    <li><strong>Adjust Volume:</strong> Click a node (or row) to select it, then <strong>scroll your mouse wheel</strong> to increase/decrease its volume.</li>
+                    <li><strong>Multi-Select:</strong> Hold <code>CTRL</code> or <code>CMD</code> while clicking to select and drag multiple nodes at once.</li>
+                </ul>
+
+                <h3>M&A and Remedies</h3>
+                <ul>
+                    <li><strong>Mergers:</strong> Click the chain icon (<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>) on a company card, then click another company's chain icon to merge them.</li>
+                    <li><strong>Divestitures (Remedies):</strong> Grab the drag handle (⋮⋮) on a site row and drop it onto a competitor's card to transfer ownership.</li>
+                </ul>
+
+                <h3>Toolbar</h3>
+                <p>Use the bottom toolbar to add/remove companies, change the warning threshold, change the catchment size (Dmax), or instantly generate a new random market scenario.</p>
+            </div>
+        </div>
+
+        <div class="modal-overlay" id="infoModal" onclick="closeModals(event)">
+            <div class="modal-content" onclick="event.stopPropagation()">
+                <button class="modal-close" onclick="closeModals(event)"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
+                <h2>The Math of Local Overlap Analysis</h2>
+                
+                <p>In competition economics, authorities (like the FTC or CMA) evaluate retail mergers by analyzing specific geographic catchments. If a merger creates a local monopoly, it harms consumers in that specific town.</p>
+
+                <h3>1. The Catchment Area (Isochrone)</h3>
+                <p>We define a local market by a Maximum Distance (<strong>Dmax</strong>), representing how far a consumer is willing to travel (e.g., a 15-minute drive).</p>
+
+                <h3>2. Distance Weighting</h3>
+                <p>Competitors located right next door exert massive pressure, while competitors on the edge of the catchment exert very little. We weight each store's volume by its distance ($d$) using linear decay:</p>
+                <div class="math-block">Weight = (Dmax - d) / Dmax</div>
+
+                <h3>3. Calculating Market Share</h3>
+                <p>To find a specific site's local market share, we take its volume, add the weighted volume of all allied stores in range, and divide it by the total weighted volume of ALL stores in range.</p>
+                <div class="math-block">Share = Σ(Allied Weighted Vol) / Σ(Total Weighted Vol)</div>
+
+                <p>If this share exceeds the regulatory "Safe Harbor" threshold (e.g., 35%), the authorities will likely demand a divestiture remedy.</p>
+            </div>
+        </div>
+
+        <div class="info-btn-container">
+            <button class="top-icon-btn highlight-pulse" id="btnInfo">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+            </button>
+        </div>
+
+        <div class="company-sidebar" id="companySidebar"></div>
+
+        <div class="bottom-toolbar" id="bottomToolbar">
+            <button class="icon-btn highlight-pulse" id="btnHelp">
+                <span class="custom-tooltip">Help</span>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+            </button>
+            <div class="divider"></div>
+
+            <button class="icon-btn" id="btnCenter">
+                <span class="custom-tooltip">Center</span>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="16"></line><line x1="8" y1="12" x2="16" y2="12"></line></svg>
+            </button>
+            <div class="divider"></div>
+            
+            <div class="tool-group">
+                <span class="custom-tooltip">Companies</span>
+                <button class="icon-btn" id="btnCompMinus" style="padding: 4px 8px;">-</button>
+                <div class="toolbar-label">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2" width="16" height="20" rx="2" ry="2"></rect><path d="M9 22v-4h6v4"></path><path d="M8 6h.01"></path><path d="M16 6h.01"></path><path d="M12 6h.01"></path><path d="M12 10h.01"></path><path d="M12 14h.01"></path><path d="M16 10h.01"></path><path d="M16 14h.01"></path><path d="M8 10h.01"></path><path d="M8 14h.01"></path></svg>
+                </div>
+                <button class="icon-btn" id="btnCompPlus" style="padding: 4px 8px;">+</button>
+            </div>
+
+            <div class="divider"></div>
+            <button class="icon-btn" id="btnReset">
+                <span class="custom-tooltip">Reset</span>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><path d="M3 3v5h5"></path></svg>
+            </button>
+            <div class="divider"></div>
+            <div class="tool-group">
+                <span class="custom-tooltip">Threshold</span>
+                <button class="icon-btn" id="btnWarnMinus" style="padding: 4px 8px;">-</button>
+                <div class="toolbar-label">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+                    <span id="warnVal">35%</span>
+                </div>
+                <button class="icon-btn" id="btnWarnPlus" style="padding: 4px 8px;">+</button>
+            </div>
+            <div class="divider"></div>
+            <div class="tool-group">
+                <span class="custom-tooltip">Radius</span>
+                <button class="icon-btn" id="btnDistMinus" style="padding: 4px 8px;">-</button>
+                <div class="toolbar-label">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M12 12l5.3-5.3"></path><path d="M17 12v-5h-5"></path></svg>
+                    <span id="distVal">150</span>
+                </div>
+                <button class="icon-btn" id="btnDistPlus" style="padding: 4px 8px;">+</button>
+            </div>
+            <div class="divider"></div>
+            <button class="icon-btn highlight-pulse" id="btnShuffle">
+                <span class="custom-tooltip">Shuffle</span>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 3 21 3 21 8"></polyline><line x1="4" y1="20" x2="21" y2="3"></line><polyline points="21 16 21 21 16 21"></polyline><line x1="15" y1="15" x2="21" y2="21"></line><line x1="4" y1="4" x2="9" y2="9"></line></svg>
+            </button>
+        </div>
+
+        <canvas id="mapCanvas"></canvas>
+    </div>
+
+<script>
+    const canvas = document.getElementById('mapCanvas');
+    const ctx = canvas.getContext('2d');
+    
+    const companySidebar = document.getElementById('companySidebar');
+    const bottomToolbar = document.getElementById('bottomToolbar');
+    
+    let DMAX = 150;
+    let THRESHOLD = 35;
+    
+    // Onboarding State
+    let onboardingActive = true;
+
+    const companyColors = [
+        '#3b82f6', '#ef4444', '#22c55e', '#f59e0b', '#a855f7', 
+        '#06b6d4', '#f43f5e', '#6366f1', '#f97316', '#14b8a6'
+    ];
+
+    const fakeNames = [
+        'Aperture Sci.', 'Giggle', 'SprawlMart', 'Buy n Large', 'Initech', 
+        'Soylent Corp', 'Globex', 'Umbrella Corp', 'Acme Corp.', 'Wayne Ent.', 
+        'Cyberdyne', 'Massive Dynamic', 'Virtucon', 'Omni Consumer', 'Hooli', 'Pied Piper'
+    ];
+
+    // SVG Icons
+    const iconChain = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>`;
+    const iconBrokenChain = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 17H7A5 5 0 0 1 7 7h2"></path><path d="M15 7h2a5 5 0 1 1 0 10h-2"></path><line x1="8" y1="12" x2="16" y2="12"></line><line x1="2" y1="2" x2="22" y2="22" stroke="currentColor"></line></svg>`;
+    const iconDelete = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>`;
+    const iconWarning = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#f87171" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>`;
+
+    function getUniqueName() {
+        const usedNames = activeCompanies.map(c => c.name);
+        const available = fakeNames.filter(n => !usedNames.includes(n));
+        if (available.length === 0) return fakeNames[Math.floor(Math.random() * fakeNames.length)];
+        return available[Math.floor(Math.random() * available.length)];
+    }
+
+    function hexToRgba(hex, alpha) {
+        let r = parseInt(hex.slice(1, 3), 16), g = parseInt(hex.slice(3, 5), 16), b = parseInt(hex.slice(5, 7), 16);
+        return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+    }
+
+    // --- Onboarding Logic ---
+    document.body.addEventListener('click', (e) => {
+        if (onboardingActive && e.target.closest('button')) {
+            onboardingActive = false;
+            document.querySelectorAll('.highlight-pulse').forEach(el => {
+                el.classList.remove('highlight-pulse');
+            });
+        }
+    });
+
+    // --- Modal Logic ---
+    function closeModals(e) {
+        if(e.target.closest('.modal-content') && !e.target.closest('.modal-close')) return;
+        document.getElementById('helpModal').classList.remove('show');
+        document.getElementById('infoModal').classList.remove('show');
+    }
+    document.getElementById('btnInfo').onclick = () => document.getElementById('infoModal').classList.add('show');
+    document.getElementById('btnHelp').onclick = () => document.getElementById('helpModal').classList.add('show');
+
+    // X-Ray Tooltip Logic
+    document.getElementById('btnHelp').addEventListener('mouseenter', () => bottomToolbar.classList.add('show-all-tips'));
+    document.getElementById('btnHelp').addEventListener('mouseleave', () => bottomToolbar.classList.remove('show-all-tips'));
+
+    let activeCompanies = [];
+    let nodes = [];
+    let hoveredNode = null;
+    let draggedNode = null;
+    let selectedNodes = new Set(); 
+    let lastWorldX = 0; let lastWorldY = 0; 
+    
+    let cameraX = 0; let cameraY = 0; let zoom = 1;
+    let isPanning = false; let startPanX = 0; let startPanY = 0;
+    
+    let pendingMergeCompId = null;
+
+    let mouseOverUI = false;
+    bottomToolbar.addEventListener('mouseenter', () => mouseOverUI = true);
+    bottomToolbar.addEventListener('mouseleave', () => mouseOverUI = false);
+    document.querySelector('.info-btn-container').addEventListener('mouseenter', () => mouseOverUI = true);
+    document.querySelector('.info-btn-container').addEventListener('mouseleave', () => mouseOverUI = false);
+
+    let cx = window.innerWidth / 2; let cy = window.innerHeight / 2;
+
+    // --- Core Logic ---
+
+    function getRootComp(compId) {
+        let comp = activeCompanies.find(c => c.id === compId);
+        while (comp && comp.mergedInto) { comp = activeCompanies.find(c => c.id === comp.mergedInto); }
+        return comp;
+    }
+
+    function getGroupedCompanies() {
+        let roots = activeCompanies.filter(c => !c.mergedInto);
+        return roots.map(root => {
+            let members = activeCompanies.filter(c => getRootComp(c.id).id === root.id);
+            return { root, members };
+        });
+    }
+
+    function toggleMerge(targetId) {
+        if (pendingMergeCompId === null) pendingMergeCompId = targetId; 
+        else if (pendingMergeCompId === targetId) pendingMergeCompId = null; 
+        else {
+            let source = activeCompanies.find(c => c.id === pendingMergeCompId);
+            if(source) source.mergedInto = targetId;
+            pendingMergeCompId = null;
+            calculateShares();
+        }
+        draw(); renderCards();
+    }
+
+    function unmerge(rootId) {
+        activeCompanies.forEach(c => { if (getRootComp(c.id).id === rootId && c.id !== rootId) c.mergedInto = null; });
+        calculateShares(); draw(); renderCards();
+    }
+
+    function deleteCompany(compId) {
+        activeCompanies.forEach(c => { if (c.mergedInto === compId) c.mergedInto = null; });
+        if (pendingMergeCompId === compId) pendingMergeCompId = null;
+        activeCompanies = activeCompanies.filter(c => c.id !== compId);
+        nodes = nodes.filter(n => n.comp !== compId);
+        selectedNodes.forEach(n => { if (n.comp === compId) selectedNodes.delete(n); });
+        if (hoveredNode && hoveredNode.comp === compId) hoveredNode = null;
+        if (draggedNode && draggedNode.comp === compId) draggedNode = null;
+        calculateShares(); draw(); renderCards();
+    }
+
+    function deleteNode(nodeId) {
+        const nodeToRemove = nodes.find(n => n.id === nodeId);
+        nodes = nodes.filter(n => n.id !== nodeId);
+        if (nodeToRemove) selectedNodes.delete(nodeToRemove);
+        if (draggedNode && draggedNode.id === nodeId) draggedNode = null;
+        if (hoveredNode && hoveredNode.id === nodeId) hoveredNode = null;
+        calculateShares(); draw(); renderCards();
+    }
+
+    // --- Init & Toolbar ---
+    function initBaseState() {
+        cameraX = 0; cameraY = 0; zoom = 1; selectedNodes.clear(); pendingMergeCompId = null;
+        activeCompanies = [{ id: 1, name: getUniqueName(), color: companyColors[0], nextSiteId: 2, collapsed: false, mergedInto: null }];
+        nodes = [{ id: '1X1', comp: 1, vol: 100, x: cx, y: cy, name: '' }];
+        calculateShares(); draw(); renderCards();
+    }
+
+    function updateToolbarDisplay() {
+        document.getElementById('warnVal').innerText = `${THRESHOLD}%`;
+        document.getElementById('distVal').innerText = DMAX;
+    }
+
+    document.getElementById('btnCenter').onclick = () => { cameraX = 0; cameraY = 0; draw(); };
+    document.getElementById('btnReset').onclick = initBaseState;
+
+    document.getElementById('btnCompMinus').onclick = () => { 
+        if (activeCompanies.length > 1) { 
+            deleteCompany(activeCompanies[activeCompanies.length - 1].id);
+        } 
+    };
+
+    document.getElementById('btnCompPlus').onclick = () => { 
+        if (activeCompanies.length < 10) { 
+            const nextIdx = activeCompanies.length;
+            const newId = (activeCompanies.length > 0 ? Math.max(...activeCompanies.map(c=>c.id)) : 0) + 1;
+            activeCompanies.push({ id: newId, name: getUniqueName(), color: companyColors[nextIdx], nextSiteId: 1, collapsed: false, mergedInto: null });
+            renderCards(); 
+        } 
+    };
+
+    document.getElementById('btnWarnMinus').onclick = () => { if(THRESHOLD > 5) THRESHOLD -= 5; updateToolbarDisplay(); updateDataDisplays(); draw(); };
+    document.getElementById('btnWarnPlus').onclick = () => { if(THRESHOLD < 100) THRESHOLD += 5; updateToolbarDisplay(); updateDataDisplays(); draw(); };
+    document.getElementById('btnDistMinus').onclick = () => { if(DMAX > 20) DMAX -= 10; updateToolbarDisplay(); calculateShares(); draw(); updateDataDisplays(); };
+    document.getElementById('btnDistPlus').onclick = () => { if(DMAX < 500) DMAX += 10; updateToolbarDisplay(); calculateShares(); draw(); updateDataDisplays(); };
+
+    document.getElementById('btnShuffle').onclick = () => {
+        const spread = DMAX * 0.9 / zoom; 
+        const numComps = Math.floor(Math.random() * 4) + 4; 
+        
+        let tempComps = []; let tempUsedNames = [];
+        for (let i = 0; i < numComps; i++) {
+            let avail = fakeNames.filter(n => !tempUsedNames.includes(n));
+            let name = avail.length > 0 ? avail[Math.floor(Math.random() * avail.length)] : "Corp";
+            tempUsedNames.push(name);
+            tempComps.push({ id: i+1, name: name, color: companyColors[i % 10], nextSiteId: 1, collapsed: false, mergedInto: null });
+        }
+
+        activeCompanies = tempComps; nodes = []; selectedNodes.clear(); pendingMergeCompId = null;
+
+        activeCompanies.forEach(comp => {
+            const numNodesForComp = Math.floor(Math.random() * 3) + 1;
+            for (let i = 0; i < numNodesForComp; i++) {
+                const vol = Math.floor(Math.random() * 26 + 5) * 10; 
+                const spawnX = ((window.innerWidth / 2) - cameraX) / zoom + (Math.random() * spread * 2 - spread);
+                const spawnY = ((window.innerHeight / 2) - cameraY) / zoom + (Math.random() * spread * 2 - spread);
+                nodes.push({ id: `${comp.id}X${comp.nextSiteId++}`, comp: comp.id, vol: vol, x: spawnX, y: spawnY, name: '' });
+            }
+        });
+
+        calculateShares(); draw(); renderCards();
+    };
+
+    // --- UI Rendering ---
+
+    function renderCards() {
+        companySidebar.innerHTML = '';
+        const groupedComps = getGroupedCompanies();
+
+        groupedComps.forEach(group => {
+            const root = group.root;
+            const members = group.members;
+            
+            const card = document.createElement('div');
+            card.className = 'company-card';
+            card.style.borderTopColor = root.color;
+            
+            card.addEventListener('dragover', (e) => { e.preventDefault(); card.classList.add('drag-over'); });
+            card.addEventListener('dragleave', () => { card.classList.remove('drag-over'); });
+            card.addEventListener('drop', (e) => {
+                e.preventDefault();
+                card.classList.remove('drag-over');
+                const nodeId = e.dataTransfer.getData('text/plain');
+                const node = nodes.find(n => n.id === nodeId);
+                if (node && getRootComp(node.comp).id !== root.id) {
+                    node.comp = root.id; node.id = `${root.id}X${root.nextSiteId++}`; selectedNodes.delete(node); 
+                    calculateShares(); draw(); renderCards();
+                }
+            });
+
+            card.addEventListener('mouseenter', () => mouseOverUI = true);
+            card.addEventListener('mouseleave', () => mouseOverUI = false);
+
+            const header = document.createElement('div');
+            header.className = 'card-header';
+            const combinedName = members.map(m => m.name).join(' + ');
+            header.innerHTML = `<div class="card-title" title="${combinedName}">${combinedName}</div>`;
+            
+            const actionsDiv = document.createElement('div');
+            actionsDiv.className = 'card-header-actions';
+
+            const mergeBtn = document.createElement('button');
+            mergeBtn.className = 'action-btn';
+            if (members.length > 1) {
+                mergeBtn.innerHTML = iconBrokenChain; mergeBtn.title = "Unmerge Companies"; mergeBtn.onclick = () => unmerge(root.id);
+            } else {
+                mergeBtn.innerHTML = iconChain; mergeBtn.title = pendingMergeCompId === null ? "Merge with another company" : (pendingMergeCompId === root.id ? "Cancel Merge" : "Complete Merge");
+                if (pendingMergeCompId === root.id) mergeBtn.classList.add('active-merge');
+                mergeBtn.onclick = () => toggleMerge(root.id);
+            }
+            actionsDiv.appendChild(mergeBtn);
+
+            const addBtn = document.createElement('button');
+            addBtn.className = 'add-site-btn'; addBtn.innerText = '+ Node';
+            addBtn.onclick = () => {
+                const spawnX = ((window.innerWidth / 2) - cameraX) / zoom + (Math.random() * 100 - 50);
+                const spawnY = ((window.innerHeight / 2) - cameraY) / zoom + (Math.random() * 100 - 50);
+                const newNode = { id: `${root.id}X${root.nextSiteId++}`, comp: root.id, vol: 100, x: spawnX, y: spawnY, name: '' };
+                nodes.push(newNode); if (!event.ctrlKey && !event.metaKey) selectedNodes.clear(); selectedNodes.add(newNode);
+                calculateShares(); draw(); renderCards();
+            };
+            actionsDiv.appendChild(addBtn);
+
+            const minBtn = document.createElement('button');
+            minBtn.className = 'action-btn'; minBtn.innerHTML = root.collapsed ? '+' : '−'; minBtn.title = "Toggle View";
+            minBtn.onclick = () => { root.collapsed = !root.collapsed; renderCards(); };
+            actionsDiv.appendChild(minBtn);
+
+            const delCompBtn = document.createElement('button');
+            delCompBtn.className = 'action-btn delete-btn'; delCompBtn.innerHTML = iconDelete; delCompBtn.title = "Delete Company";
+            delCompBtn.onclick = () => deleteCompany(root.id);
+            actionsDiv.appendChild(delCompBtn);
+
+            header.appendChild(actionsDiv); card.appendChild(header);
+
+            const body = document.createElement('div'); body.className = 'card-body';
+            if (root.collapsed) body.style.display = 'none';
+
+            let groupNodes = [];
+            members.forEach(m => { groupNodes = groupNodes.concat(nodes.filter(n => n.comp === m.id)); });
+            groupNodes.sort((a,b) => a.share - b.share);
+            
+            if (groupNodes.length === 0) {
+                const empty = document.createElement('div'); empty.className = 'hint-text'; empty.innerText = 'No sites active.'; body.appendChild(empty);
+            }
+
+            groupNodes.forEach(n => {
+                const row = document.createElement('div'); row.className = 'site-row';
+                if(selectedNodes.has(n)) row.style.backgroundColor = 'rgba(255, 255, 255, 0.1)';
+                
+                row.draggable = true;
+                row.addEventListener('dragstart', (e) => { e.dataTransfer.setData('text/plain', n.id); e.dataTransfer.effectAllowed = 'move'; });
+
+                let idPrefix = members.length > 1 ? `<span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:${activeCompanies.find(c=>c.id===n.comp).color};margin-right:4px;"></span>` : '';
+
+                row.innerHTML = `
+                    <div class="drag-handle" title="Drag to divest">⋮⋮</div>
+                    <div class="site-id" title="Orig. Co ID: ${n.comp}">${idPrefix}#${n.id.split('X')[1]}</div>
+                    <div class="site-name"><input type="text" id="name-${n.id}" class="name-input" placeholder="Name" value="${n.name || ''}"></div>
+                    <div class="site-vol"><input type="number" id="vol-${n.id}" class="vol-input" value="${n.vol}" min="0" step="10"></div>
+                    <div class="site-share" id="share-${n.id}">${n.share.toFixed(1)}%</div>
+                    <div class="site-warning" id="warn-${n.id}" style="opacity: ${n.share >= THRESHOLD ? '1' : '0'};" title="Threshold Exceeded">${iconWarning}</div>
+                `;
+
+                const delSiteBtn = document.createElement('button');
+                delSiteBtn.className = 'site-del-btn'; delSiteBtn.innerHTML = iconDelete; delSiteBtn.title = "Delete Site";
+                delSiteBtn.onclick = () => deleteNode(n.id);
+                row.appendChild(delSiteBtn);
+
+                row.addEventListener('mouseenter', () => { hoveredNode = n; draw(); });
+                row.addEventListener('mouseleave', () => { hoveredNode = null; draw(); });
+
+                // Event listener for Volume
+                const volInput = row.querySelector('.vol-input');
+                volInput.addEventListener('input', (e) => {
+                    const newVol = parseFloat(e.target.value); n.vol = isNaN(newVol) || newVol < 0 ? 0 : newVol;
+                    calculateShares(); draw(); updateDataDisplays(); 
+                });
+
+                // Event listener for Name
+                const nameInput = row.querySelector('.name-input');
+                nameInput.addEventListener('input', (e) => {
+                    n.name = e.target.value;
+                    draw(); 
+                });
+
+                body.appendChild(row);
+            });
+
+            card.appendChild(body); companySidebar.appendChild(card);
+        });
+    }
+
+    function updateDataDisplays() {
+        nodes.forEach(n => {
+            const shareEl = document.getElementById(`share-${n.id}`); const warnEl = document.getElementById(`warn-${n.id}`);
+            if (shareEl) shareEl.innerText = `${n.share.toFixed(1)}%`;
+            if (warnEl) warnEl.style.opacity = n.share >= THRESHOLD ? '1' : '0';
+            
+            const volEl = document.getElementById(`vol-${n.id}`);
+            if (volEl && document.activeElement !== volEl) volEl.value = n.vol;
+
+            const nameEl = document.getElementById(`name-${n.id}`);
+            if (nameEl && document.activeElement !== nameEl) nameEl.value = n.name || '';
+        });
+    }
+
+    // --- Math & Visual Engine ---
+
+    function resizeCanvas() {
+        canvas.width = window.innerWidth; canvas.height = window.innerHeight;
+        cx = window.innerWidth / 2; cy = window.innerHeight / 2; draw();
+    }
+    window.addEventListener('resize', resizeCanvas);
+
+    function getRadius(vol) { return Math.max(4, Math.sqrt(vol) * 1.5); }
+
+    function calculateShares() {
+        nodes.forEach(target => {
+            let num = 0; let den = 0; let targetRoot = getRootComp(target.comp);
+            nodes.forEach(neighbor => {
+                const dist = Math.sqrt(Math.pow(target.x - neighbor.x, 2) + Math.pow(target.y - neighbor.y, 2));
+                if (dist <= DMAX) {
+                    const weight = (DMAX - dist) / DMAX; const weightedVol = weight * neighbor.vol; den += weightedVol; 
+                    if (targetRoot.id === getRootComp(neighbor.comp).id) num += weightedVol; 
+                }
+            });
+            target.share = den > 0 ? (num / den) * 100 : 100; 
+        });
+    }
+
+    function draw() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.save(); ctx.translate(cameraX, cameraY); ctx.scale(zoom, zoom);
+
+        const activeNode = hoveredNode || (selectedNodes.size === 1 ? [...selectedNodes][0] : null);
+
+        if (activeNode) {
+            const activeRootColor = getRootComp(activeNode.comp).color;
+            nodes.forEach(neighbor => {
+                if (activeNode.id !== neighbor.id) {
+                    const dist = Math.sqrt(Math.pow(activeNode.x - neighbor.x, 2) + Math.pow(activeNode.y - neighbor.y, 2));
+                    if (dist <= DMAX) {
+                        ctx.beginPath(); ctx.moveTo(activeNode.x, activeNode.y); ctx.lineTo(neighbor.x, neighbor.y);
+                        let grad = ctx.createLinearGradient(activeNode.x, activeNode.y, neighbor.x, neighbor.y);
+                        grad.addColorStop(0, hexToRgba(activeRootColor, 0.6)); grad.addColorStop(1, hexToRgba(getRootComp(neighbor.comp).color, 0.1));
+                        ctx.strokeStyle = grad; ctx.lineWidth = 1.5 / zoom; ctx.stroke();
+                    }
+                }
+            });
+
+            ctx.beginPath(); ctx.arc(activeNode.x, activeNode.y, DMAX, 0, Math.PI * 2);
+            let radGrad = ctx.createRadialGradient(activeNode.x, activeNode.y, DMAX*0.8, activeNode.x, activeNode.y, DMAX);
+            radGrad.addColorStop(0, hexToRgba(activeRootColor, 0.05)); radGrad.addColorStop(1, hexToRgba(activeRootColor, 0.0));
+            ctx.fillStyle = radGrad; ctx.fill(); ctx.strokeStyle = hexToRgba(activeRootColor, 0.2); ctx.lineWidth = 1 / zoom; ctx.stroke();
+        }
+
+        const normalNodes = nodes.filter(n => !selectedNodes.has(n) && n !== hoveredNode);
+        const priorityNodes = nodes.filter(n => selectedNodes.has(n) || n === hoveredNode);
+
+        [...normalNodes, ...priorityNodes].forEach(node => {
+            const r = getRadius(node.vol); const nodeColor = getRootComp(node.comp).color; 
+            const isPriority = hoveredNode === node || selectedNodes.has(node);
+            
+            if (node.share >= THRESHOLD) {
+                ctx.beginPath(); ctx.arc(node.x, node.y, r + (6/zoom), 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(248, 113, 113, 0.15)'; ctx.fill(); ctx.strokeStyle = 'rgba(248, 113, 113, 0.8)'; ctx.lineWidth = 2 / zoom; ctx.stroke();
+            }
+
+            if (selectedNodes.has(node)) {
+                ctx.beginPath(); ctx.arc(node.x, node.y, r + (3/zoom), 0, Math.PI * 2);
+                ctx.strokeStyle = 'white'; ctx.lineWidth = 2 / zoom; ctx.stroke();
+            }
+
+            ctx.beginPath(); ctx.arc(node.x, node.y, r, 0, Math.PI * 2);
+            ctx.fillStyle = nodeColor; ctx.shadowColor = nodeColor; ctx.shadowBlur = isPriority ? 25 : 10;
+            ctx.fill(); ctx.shadowBlur = 0;
+
+            if (r > 12/zoom || isPriority || node.name) {
+                ctx.save(); ctx.translate(node.x, node.y); ctx.scale(1/zoom, 1/zoom);
+                ctx.fillStyle = '#ffffff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+                
+                if (r > 12/zoom || isPriority) {
+                    ctx.font = '600 11px sans-serif';
+                    ctx.fillText(node.id.split('X')[1], 0, 0); 
+                }
+                
+                if (node.name) {
+                    ctx.font = '400 11px sans-serif';
+                    ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+                    // Draw name directly below the visual edge of the node
+                    ctx.fillText(node.name, 0, (r * zoom) + 14);
+                }
+                ctx.restore();
+            }
+        });
+
+        if (activeNode) {
+            ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            
+            nodes.forEach(neighbor => {
+                if (activeNode.id !== neighbor.id) {
+                    const dist = Math.sqrt(Math.pow(activeNode.x - neighbor.x, 2) + Math.pow(activeNode.y - neighbor.y, 2));
+                    if (dist <= DMAX) {
+                        const midX = (activeNode.x + neighbor.x) / 2; const midY = (activeNode.y + neighbor.y) / 2; const distStr = Math.round(dist).toString();
+                        ctx.save(); ctx.translate(midX, midY); ctx.scale(1/zoom, 1/zoom); 
+                        ctx.font = '10px sans-serif'; const metrics = ctx.measureText(distStr); const bgW = metrics.width + 10; const bgH = 16;
+                        ctx.fillStyle = 'rgba(24, 24, 27, 0.9)'; ctx.beginPath(); ctx.roundRect(-bgW/2, -bgH/2, bgW, bgH, 4); ctx.fill();
+                        ctx.fillStyle = '#94a3b8'; ctx.fillText(distStr, 0, 0); ctx.restore();
+                    }
+                }
+            });
+
+            const shareStr = activeNode.share.toFixed(1) + '%'; const r = getRadius(activeNode.vol);
+            const labelX = activeNode.x; const labelY = activeNode.y - r - (20/zoom); 
+
+            ctx.save(); ctx.translate(labelX, labelY); ctx.scale(1/zoom, 1/zoom); 
+            ctx.font = 'bold 12px sans-serif'; const sMetrics = ctx.measureText(shareStr); const sBgW = sMetrics.width + 16; const sBgH = 22;
+
+            ctx.fillStyle = 'rgba(9, 9, 11, 0.85)'; ctx.beginPath(); ctx.roundRect(-sBgW/2, -sBgH/2, sBgW, sBgH, 6); ctx.fill();
+            ctx.strokeStyle = getRootComp(activeNode.comp).color; ctx.lineWidth = 1.5; ctx.stroke();
+            ctx.fillStyle = activeNode.share >= THRESHOLD ? '#f87171' : '#f8fafc'; ctx.fillText(shareStr, 0, 0);
+            ctx.restore();
+        }
+        ctx.restore();
+    }
+
+    // --- Inputs ---
+
+    function getMouseWorldPos(e) {
+        const rect = canvas.getBoundingClientRect();
+        return { x: (e.clientX - rect.left - cameraX) / zoom, y: (e.clientY - rect.top - cameraY) / zoom };
+    }
+
+    canvas.addEventListener('wheel', (e) => {
+        if (mouseOverUI) return;
+        e.preventDefault();
+        if (selectedNodes.size > 0) {
+            const delta = e.deltaY < 0 ? 10 : -10;
+            selectedNodes.forEach(n => { n.vol = Math.max(0, n.vol + delta); });
+            calculateShares(); draw(); updateDataDisplays();
+        } else {
+            const rect = canvas.getBoundingClientRect(); const mouseX = e.clientX - rect.left; const mouseY = e.clientY - rect.top;
+            const worldX = (mouseX - cameraX) / zoom; const worldY = (mouseY - cameraY) / zoom;
+            const zoomFactor = e.deltaY < 0 ? 1.1 : 0.9; let newZoom = zoom * zoomFactor; newZoom = Math.max(0.1, Math.min(newZoom, 10));
+            cameraX = mouseX - (worldX * newZoom); cameraY = mouseY - (worldY * newZoom);
+            zoom = newZoom; draw();
+        }
+    }, { passive: false });
+
+    canvas.addEventListener('mousedown', (e) => {
+        if (mouseOverUI) return;
+        const worldPos = getMouseWorldPos(e);
+        const hitNode = nodes.find(n => Math.sqrt(Math.pow(worldPos.x - n.x, 2) + Math.pow(worldPos.y - n.y, 2)) < getRadius(n.vol) + (5/zoom));
+
+        if (hitNode) {
+            if (e.ctrlKey || e.metaKey) {
+                if (selectedNodes.has(hitNode)) { selectedNodes.delete(hitNode); draggedNode = null; } 
+                else { selectedNodes.add(hitNode); draggedNode = hitNode; }
+            } else {
+                if (!selectedNodes.has(hitNode)) { selectedNodes.clear(); selectedNodes.add(hitNode); }
+                draggedNode = hitNode;
+            }
+            if (draggedNode) { lastWorldX = worldPos.x; lastWorldY = worldPos.y; }
+            renderCards(); draw();
+        } else {
+            if (!e.ctrlKey && !e.metaKey) { selectedNodes.clear(); renderCards(); }
+            isPanning = true; startPanX = e.clientX - cameraX; startPanY = e.clientY - cameraY; draw();
+        }
+    });
+
+    canvas.addEventListener('mousemove', (e) => {
+        if (mouseOverUI) return;
+        const worldPos = getMouseWorldPos(e);
+        
+        if (draggedNode) {
+            const dx = worldPos.x - lastWorldX; const dy = worldPos.y - lastWorldY;
+            selectedNodes.forEach(n => { n.x += dx; n.y += dy; });
+            lastWorldX = worldPos.x; lastWorldY = worldPos.y;
+            calculateShares(); draw(); updateDataDisplays();
+        } else if (isPanning) {
+            cameraX = e.clientX - startPanX; cameraY = e.clientY - startPanY; draw();
+        } else {
+            const prevHover = hoveredNode;
+            hoveredNode = nodes.slice().reverse().find(n => Math.sqrt(Math.pow(worldPos.x - n.x, 2) + Math.pow(worldPos.y - n.y, 2)) < getRadius(n.vol) + (5/zoom)) || null;
+            if(hoveredNode) canvas.classList.add('node-hover'); else canvas.classList.remove('node-hover');
+            if (prevHover !== hoveredNode) draw();
+        }
+    });
+
+    canvas.addEventListener('mouseup', () => { draggedNode = null; isPanning = false; });
+    canvas.addEventListener('mouseleave', () => { draggedNode = null; isPanning = false; hoveredNode = null; draw(); });
+
+    // Startup
+    resizeCanvas(); 
+    updateToolbarDisplay();
+    initBaseState();
+
+</script>
+</body>
+</html>
