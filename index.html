@@ -2,39 +2,32 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Local Market Simulator - Custom Naming</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Local Market Simulator - Mobile Optimized</title>
     <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            background-color: #09090b;
-            color: #e2e8f0;
-            margin: 0;
-            height: 100vh;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            overflow: hidden;
+            background-color: #09090b; color: #e2e8f0; margin: 0; padding: 0;
+            height: 100vh; width: 100vw; overflow: hidden; display: flex; justify-content: center; align-items: center;
         }
 
-        .app-container { position: relative; width: 100vw; height: 100vh; }
-        canvas { display: block; width: 100%; height: 100%; cursor: grab; }
+        .app-container { position: relative; width: 100%; height: 100%; }
+        canvas { display: block; width: 100%; height: 100%; cursor: grab; touch-action: none; /* Stops pull-to-refresh */ }
         canvas:active { cursor: grabbing; }
         canvas.node-hover { cursor: pointer; }
 
         /* Floating Company Cards Sidebar */
         .company-sidebar {
-            position: absolute; top: 20px; left: 20px; bottom: 100px; width: 380px;
+            position: absolute; top: 20px; left: 20px; bottom: 90px; width: 340px;
             display: flex; flex-direction: column; gap: 15px; overflow-y: auto; pointer-events: none; z-index: 10;
         }
         .company-sidebar::-webkit-scrollbar { display: none; }
 
         .company-card {
-            background: rgba(24, 24, 27, 0.7); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+            background: rgba(24, 24, 27, 0.85); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
             border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px; padding: 16px;
             box-shadow: 0 10px 20px rgba(0,0,0,0.4); pointer-events: auto; border-top: 4px solid; flex-shrink: 0; transition: all 0.2s ease;
         }
-        .company-card.drag-over { border-color: #fbbf24 !important; background: rgba(251, 191, 36, 0.15); transform: scale(1.02); }
 
         .card-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 4px; }
         .card-title { font-weight: 700; font-size: 0.95rem; color: #f8fafc; line-height: 1.3; max-width: 140px; }
@@ -42,55 +35,54 @@
 
         .action-btn {
             background: transparent; border: none; color: #94a3b8; font-weight: bold; cursor: pointer;
-            width: 26px; height: 26px; border-radius: 4px; display: flex; align-items: center; justify-content: center; transition: all 0.2s;
+            width: 28px; height: 28px; border-radius: 4px; display: flex; align-items: center; justify-content: center; transition: all 0.2s;
         }
         .action-btn:hover { background: rgba(255, 255, 255, 0.1); color: white; }
         .action-btn.active-merge { color: #fbbf24; background: rgba(251, 191, 36, 0.15); }
         .action-btn.delete-btn:hover { color: #f87171; background: rgba(248, 113, 113, 0.15); }
 
         .add-site-btn {
-            background: rgba(255, 255, 255, 0.1); border: none; color: white; padding: 4px 8px;
-            border-radius: 4px; font-size: 0.75rem; font-weight: bold; cursor: pointer; transition: background 0.2s; height: 26px;
+            background: rgba(255, 255, 255, 0.1); border: none; color: white; padding: 6px 10px;
+            border-radius: 4px; font-size: 0.75rem; font-weight: bold; cursor: pointer; transition: background 0.2s; height: 28px;
         }
         .add-site-btn:hover { background: rgba(255, 255, 255, 0.2); }
 
         .card-body { display: flex; flex-direction: column; margin-top: 8px; }
 
         .site-row {
-            display: flex; align-items: center; gap: 6px; padding: 6px 4px; border-bottom: 1px solid rgba(255,255,255,0.05);
-            font-size: 0.85rem; border-radius: 4px; transition: background 0.2s; cursor: grab;
+            display: flex; align-items: center; gap: 6px; padding: 8px 4px; border-bottom: 1px solid rgba(255,255,255,0.05);
+            font-size: 0.85rem; border-radius: 4px; transition: background 0.2s;
         }
         .site-row:last-child { border-bottom: none; }
         .site-row:hover { background: rgba(255, 255, 255, 0.05); }
-        .site-row:active { cursor: grabbing; }
 
-        .drag-handle { color: #475569; font-weight: bold; font-size: 1rem; line-height: 1; padding-right: 2px; user-select: none; width: 12px; }
-        .site-id { width: 30px; color: #94a3b8; font-weight: 600; font-size: 0.75rem; }
+        .site-id { width: 35px; color: #94a3b8; font-weight: 600; font-size: 0.75rem; }
         .site-name { flex: 1; display: flex; }
-        .site-vol { width: 55px; display: flex; }
+        .site-vol { width: 60px; display: flex; }
         .site-share { width: 45px; text-align: right; font-weight: bold; color: #f8fafc; transition: color 0.3s; }
         .site-warning { width: 16px; display: flex; align-items: center; justify-content: center; transition: opacity 0.2s; }
 
         .hint-text { font-size: 0.75rem; color: #64748b; font-style: italic; margin-top: 8px; }
 
         .vol-input, .name-input {
-            width: 100%; box-sizing: border-box; padding: 4px 6px; background: rgba(0,0,0,0.3); 
+            width: 100%; box-sizing: border-box; padding: 6px; background: rgba(0,0,0,0.3); 
             border: 1px solid rgba(255,255,255,0.1); color: white; border-radius: 4px; 
-            font-family: monospace; font-size: 0.8rem; outline: none; transition: border 0.2s;
+            font-family: monospace; font-size: 0.85rem; outline: none; transition: border 0.2s;
         }
         .name-input { font-family: inherit; }
         .vol-input:focus, .name-input:focus { border-color: rgba(255,255,255,0.5); }
         
-        .site-del-btn {
+        .site-icon-btn {
             background: transparent; border: none; color: #64748b; cursor: pointer; padding: 4px; border-radius: 4px;
-            display: flex; align-items: center; justify-content: center; transition: all 0.2s; height: 24px; width: 24px;
+            display: flex; align-items: center; justify-content: center; transition: all 0.2s; height: 28px; width: 28px;
         }
-        .site-del-btn:hover { color: #f87171; background: rgba(248, 113, 113, 0.15); }
+        .site-icon-btn:hover { color: #f8fafc; background: rgba(255, 255, 255, 0.1); }
+        .site-icon-btn.del:hover { color: #f87171; background: rgba(248, 113, 113, 0.15); }
 
         /* Top Right Info Button */
         .info-btn-container { position: absolute; top: 20px; right: 20px; z-index: 10; }
         .top-icon-btn {
-            background: rgba(24, 24, 27, 0.75); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.1);
+            background: rgba(24, 24, 27, 0.85); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.1);
             color: #94a3b8; cursor: pointer; padding: 12px; border-radius: 50%; display: flex; align-items: center;
             justify-content: center; box-shadow: 0 10px 20px rgba(0,0,0,0.4); transition: all 0.2s;
         }
@@ -98,77 +90,82 @@
 
         /* Bottom Floating Toolbar */
         .bottom-toolbar {
-            position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%);
-            background: rgba(24, 24, 27, 0.75); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+            position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
+            background: rgba(24, 24, 27, 0.85); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
             border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 16px; padding: 8px 16px;
             display: flex; gap: 16px; align-items: center; box-shadow: 0 20px 40px rgba(0,0,0,0.6); pointer-events: auto; user-select: none; z-index: 10;
         }
 
         .tool-group { display: flex; align-items: center; gap: 6px; background: rgba(0,0,0,0.3); padding: 4px 6px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.05); position: relative; }
-        .divider { width: 1px; height: 24px; background: rgba(255,255,255,0.1); }
+        .divider { width: 1px; height: 24px; background: rgba(255,255,255,0.1); flex-shrink: 0;}
 
         .icon-btn {
-            background: transparent; border: none; color: #94a3b8; cursor: pointer; padding: 8px; border-radius: 8px;
-            display: flex; align-items: center; justify-content: center; transition: all 0.2s; position: relative;
+            background: transparent; border: none; color: #94a3b8; cursor: pointer; padding: 10px; border-radius: 8px;
+            display: flex; align-items: center; justify-content: center; transition: all 0.2s; position: relative; flex-shrink: 0;
         }
         .icon-btn:hover { background: rgba(255,255,255,0.1); color: #f8fafc; }
         .icon-btn:active { transform: scale(0.95); }
         
-        .toolbar-label { display: flex; flex-direction: column; align-items: center; justify-content: center; color: #e2e8f0; min-width: 48px; font-size: 0.8rem; font-weight: 600; }
+        .toolbar-label { display: flex; flex-direction: column; align-items: center; justify-content: center; color: #e2e8f0; min-width: 48px; font-size: 0.8rem; font-weight: 600; flex-shrink: 0;}
         .toolbar-label svg { stroke: #94a3b8; margin-bottom: 2px; }
 
-        /* --- Custom Tooltips --- */
+        /* Custom Tooltips (Hidden on Mobile) */
         .custom-tooltip {
-            position: absolute;
-            bottom: calc(100% + 12px);
-            left: 50%;
-            transform: translateX(-50%) translateY(10px);
-            background: rgba(9, 9, 11, 0.95);
-            color: #f8fafc;
-            padding: 6px 10px;
-            border-radius: 6px;
-            font-size: 0.75rem;
-            font-weight: 600;
-            white-space: nowrap;
-            pointer-events: none;
-            opacity: 0;
-            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-            border: 1px solid rgba(255,255,255,0.15);
-            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
-            z-index: 100;
+            position: absolute; bottom: calc(100% + 12px); left: 50%; transform: translateX(-50%) translateY(10px);
+            background: rgba(9, 9, 11, 0.95); color: #f8fafc; padding: 6px 10px; border-radius: 6px; font-size: 0.75rem;
+            font-weight: 600; white-space: nowrap; pointer-events: none; opacity: 0; transition: all 0.2s; border: 1px solid rgba(255,255,255,0.15); z-index: 100;
         }
-        
-        .icon-btn:hover .custom-tooltip, .tool-group:hover .custom-tooltip { opacity: 1; transform: translateX(-50%) translateY(0); }
-        .bottom-toolbar.show-all-tips .custom-tooltip { opacity: 1; transform: translateX(-50%) translateY(0); }
+        @media (min-width: 769px) {
+            .icon-btn:hover .custom-tooltip, .tool-group:hover .custom-tooltip { opacity: 1; transform: translateX(-50%) translateY(0); }
+            .bottom-toolbar.show-all-tips .custom-tooltip { opacity: 1; transform: translateX(-50%) translateY(0); }
+        }
 
-        /* Onboarding Highlight Animation */
-        @keyframes pulse-ring {
-            0% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.8); }
-            70% { box-shadow: 0 0 0 12px rgba(59, 130, 246, 0); }
-            100% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0); }
-        }
+        /* Onboarding Animation */
+        @keyframes pulse-ring { 0% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.8); } 70% { box-shadow: 0 0 0 12px rgba(59, 130, 246, 0); } 100% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0); } }
         .highlight-pulse { animation: pulse-ring 1.5s infinite; border-color: #3b82f6 !important; background: rgba(59, 130, 246, 0.2) !important; color: white; }
 
         /* Modals */
         .modal-overlay {
             position: absolute; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); backdrop-filter:blur(6px);
-            display:none; justify-content:center; align-items:center; z-index: 100; opacity: 0; transition: opacity 0.3s;
+            display:none; justify-content:center; align-items:center; z-index: 100; opacity: 0; transition: opacity 0.3s; padding: 20px; box-sizing: border-box;
         }
         .modal-overlay.show { display: flex; opacity: 1; }
         .modal-content {
-            background: #18181b; border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 30px;
-            max-width: 500px; color: #e2e8f0; position: relative; max-height: 80vh; overflow-y: auto; box-shadow: 0 25px 50px rgba(0,0,0,0.5);
-            transform: translateY(20px); transition: transform 0.3s;
+            background: #18181b; border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 25px;
+            width: 100%; max-width: 500px; color: #e2e8f0; position: relative; max-height: 85vh; overflow-y: auto; 
+            box-shadow: 0 25px 50px rgba(0,0,0,0.5); transform: translateY(20px); transition: transform 0.3s; box-sizing: border-box;
         }
         .modal-overlay.show .modal-content { transform: translateY(0); }
-        .modal-close { position: absolute; top: 16px; right: 16px; cursor: pointer; background: transparent; border: none; color: #94a3b8; transition: color 0.2s; }
+        .modal-close { position: absolute; top: 12px; right: 12px; cursor: pointer; background: transparent; border: none; color: #94a3b8; transition: color 0.2s; padding: 8px;}
         .modal-close:hover { color: white; }
-        .modal-content h2 { margin-top: 0; color: #f8fafc; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 10px; }
-        .modal-content h3 { font-size: 1.05rem; color: #fbbf24; margin-bottom: 6px; }
-        .modal-content p { font-size: 0.95rem; line-height: 1.5; color: #cbd5e1; margin-top: 0;}
-        .modal-content ul { font-size: 0.95rem; line-height: 1.5; color: #cbd5e1; padding-left: 20px;}
+        .modal-content h2 { margin-top: 0; color: #f8fafc; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 10px; font-size: 1.2rem;}
+        .modal-content h3 { font-size: 1rem; color: #fbbf24; margin-bottom: 6px; }
+        .modal-content p, .modal-content ul { font-size: 0.9rem; line-height: 1.5; color: #cbd5e1; margin-top: 0;}
+        .modal-content ul { padding-left: 20px; }
         .modal-content li { margin-bottom: 8px; }
-        .math-block { background: #09090b; padding: 12px; border-radius: 6px; font-family: monospace; color: #3b82f6; text-align: center; border: 1px solid rgba(255,255,255,0.05); margin: 15px 0;}
+        .math-block { background: #09090b; padding: 12px; border-radius: 6px; font-family: monospace; color: #3b82f6; text-align: center; border: 1px solid rgba(255,255,255,0.05); margin: 15px 0; font-size: 0.85rem;}
+
+        /* --- MOBILE RESPONSIVE DESIGN --- */
+        @media (max-width: 768px) {
+            .company-sidebar {
+                width: 100%; left: 0; top: auto; bottom: 70px; max-height: 45vh; padding: 10px 15px; box-sizing: border-box;
+                /* Fade out bottom to indicate scroll */
+                -webkit-mask-image: linear-gradient(to top, transparent 0%, black 15px);
+            }
+            .company-card { padding: 12px; }
+            .card-title { max-width: 100px; font-size: 0.85rem; }
+            
+            .bottom-toolbar {
+                width: 100%; bottom: 0; border-radius: 0; border-left: none; border-right: none; border-bottom: none;
+                justify-content: flex-start; overflow-x: auto; padding: 10px 15px; box-sizing: border-box;
+            }
+            /* Hide scrollbar for toolbar */
+            .bottom-toolbar::-webkit-scrollbar { display: none; }
+            
+            .info-btn-container { top: 15px; right: 15px; }
+            .top-icon-btn { padding: 8px; }
+            .top-icon-btn svg { width: 20px; height: 20px; }
+        }
 
         .company-sidebar:hover ~ canvas, .bottom-toolbar:hover ~ canvas, .info-btn-container:hover ~ canvas { pointer-events: none; }
     </style>
@@ -184,15 +181,15 @@
                 
                 <h3>Navigation & Editing</h3>
                 <ul>
-                    <li><strong>Pan/Zoom:</strong> Click and drag empty space to pan. Scroll mouse wheel to zoom.</li>
-                    <li><strong>Adjust Volume:</strong> Click a node (or row) to select it, then <strong>scroll your mouse wheel</strong> to increase/decrease its volume.</li>
-                    <li><strong>Multi-Select:</strong> Hold <code>CTRL</code> or <code>CMD</code> while clicking to select and drag multiple nodes at once.</li>
+                    <li><strong>Pan:</strong> Click/Touch and drag empty space.</li>
+                    <li><strong>Zoom:</strong> Scroll mouse wheel, or <strong>pinch with two fingers</strong> on mobile.</li>
+                    <li><strong>Adjust Volume:</strong> Click a node to select it, then <strong>scroll your mouse wheel</strong> to resize it. (Or use the text input).</li>
                 </ul>
 
                 <h3>M&A and Remedies</h3>
                 <ul>
                     <li><strong>Mergers:</strong> Click the chain icon (<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>) on a company card, then click another company's chain icon to merge them.</li>
-                    <li><strong>Divestitures (Remedies):</strong> Grab the drag handle (⋮⋮) on a site row and drop it onto a competitor's card to transfer ownership.</li>
+                    <li><strong>Divestitures (Remedies):</strong> Click the Transfer icon (⟲) on any site row to instantly hand ownership of that site to the next competitor.</li>
                 </ul>
 
                 <h3>Toolbar</h3>
@@ -205,13 +202,13 @@
                 <button class="modal-close" onclick="closeModals(event)"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
                 <h2>The Math of Local Overlap Analysis</h2>
                 
-                <p>In competition economics, authorities (like the FTC or CMA) evaluate retail mergers by analyzing specific geographic catchments. If a merger creates a local monopoly, it harms consumers in that specific town.</p>
+                <p>In competition economics, authorities evaluate retail mergers by analyzing specific geographic catchments. If a merger creates a local monopoly, it harms consumers in that specific town.</p>
 
                 <h3>1. The Catchment Area (Isochrone)</h3>
-                <p>We define a local market by a Maximum Distance (<strong>Dmax</strong>), representing how far a consumer is willing to travel (e.g., a 15-minute drive).</p>
+                <p>We define a local market by a Maximum Distance (<strong>Dmax</strong>), representing how far a consumer is willing to travel.</p>
 
                 <h3>2. Distance Weighting</h3>
-                <p>Competitors located right next door exert massive pressure, while competitors on the edge of the catchment exert very little. We weight each store's volume by its distance ($d$) using linear decay:</p>
+                <p>Competitors located right next door exert massive pressure, while competitors on the edge of the catchment exert very little. We weight each store's volume by its distance ($d$):</p>
                 <div class="math-block">Weight = (Dmax - d) / Dmax</div>
 
                 <h3>3. Calculating Market Share</h3>
@@ -296,8 +293,6 @@
     
     let DMAX = 150;
     let THRESHOLD = 35;
-    
-    // Onboarding State
     let onboardingActive = true;
 
     const companyColors = [
@@ -316,6 +311,7 @@
     const iconBrokenChain = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 17H7A5 5 0 0 1 7 7h2"></path><path d="M15 7h2a5 5 0 1 1 0 10h-2"></path><line x1="8" y1="12" x2="16" y2="12"></line><line x1="2" y1="2" x2="22" y2="22" stroke="currentColor"></line></svg>`;
     const iconDelete = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>`;
     const iconWarning = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#f87171" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>`;
+    const iconTransfer = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="21 3 21 9 15 9"></polyline><path d="M20.49 14a9 9 0 1 1-2.12-9.36L21 9"></path></svg>`;
 
     function getUniqueName() {
         const usedNames = activeCompanies.map(c => c.name);
@@ -329,17 +325,14 @@
         return `rgba(${r}, ${g}, ${b}, ${alpha})`;
     }
 
-    // --- Onboarding Logic ---
+    // --- Onboarding & Modals ---
     document.body.addEventListener('click', (e) => {
         if (onboardingActive && e.target.closest('button')) {
             onboardingActive = false;
-            document.querySelectorAll('.highlight-pulse').forEach(el => {
-                el.classList.remove('highlight-pulse');
-            });
+            document.querySelectorAll('.highlight-pulse').forEach(el => el.classList.remove('highlight-pulse'));
         }
     });
 
-    // --- Modal Logic ---
     function closeModals(e) {
         if(e.target.closest('.modal-content') && !e.target.closest('.modal-close')) return;
         document.getElementById('helpModal').classList.remove('show');
@@ -348,7 +341,7 @@
     document.getElementById('btnInfo').onclick = () => document.getElementById('infoModal').classList.add('show');
     document.getElementById('btnHelp').onclick = () => document.getElementById('helpModal').classList.add('show');
 
-    // X-Ray Tooltip Logic
+    // Tooltips
     document.getElementById('btnHelp').addEventListener('mouseenter', () => bottomToolbar.classList.add('show-all-tips'));
     document.getElementById('btnHelp').addEventListener('mouseleave', () => bottomToolbar.classList.remove('show-all-tips'));
 
@@ -369,6 +362,8 @@
     bottomToolbar.addEventListener('mouseleave', () => mouseOverUI = false);
     document.querySelector('.info-btn-container').addEventListener('mouseenter', () => mouseOverUI = true);
     document.querySelector('.info-btn-container').addEventListener('mouseleave', () => mouseOverUI = false);
+    companySidebar.addEventListener('mouseenter', () => mouseOverUI = true);
+    companySidebar.addEventListener('mouseleave', () => mouseOverUI = false);
 
     let cx = window.innerWidth / 2; let cy = window.innerHeight / 2;
 
@@ -424,6 +419,24 @@
         if (hoveredNode && hoveredNode.id === nodeId) hoveredNode = null;
         calculateShares(); draw(); renderCards();
     }
+    
+    // Transfer logic for mobile
+    function transferNode(nodeId) {
+        const node = nodes.find(n => n.id === nodeId);
+        if (!node) return;
+        
+        let rootComps = activeCompanies.filter(c => !c.mergedInto);
+        if (rootComps.length <= 1) return; // Nowhere to transfer to
+        
+        let currentRoot = getRootComp(node.comp);
+        let currentIndex = rootComps.findIndex(c => c.id === currentRoot.id);
+        let nextRoot = rootComps[(currentIndex + 1) % rootComps.length];
+        
+        node.comp = nextRoot.id; 
+        node.id = `${nextRoot.id}X${nextRoot.nextSiteId++}`; 
+        selectedNodes.delete(node); 
+        calculateShares(); draw(); renderCards();
+    }
 
     // --- Init & Toolbar ---
     function initBaseState() {
@@ -442,9 +455,7 @@
     document.getElementById('btnReset').onclick = initBaseState;
 
     document.getElementById('btnCompMinus').onclick = () => { 
-        if (activeCompanies.length > 1) { 
-            deleteCompany(activeCompanies[activeCompanies.length - 1].id);
-        } 
+        if (activeCompanies.length > 1) { deleteCompany(activeCompanies[activeCompanies.length - 1].id); } 
     };
 
     document.getElementById('btnCompPlus').onclick = () => { 
@@ -501,22 +512,6 @@
             const card = document.createElement('div');
             card.className = 'company-card';
             card.style.borderTopColor = root.color;
-            
-            card.addEventListener('dragover', (e) => { e.preventDefault(); card.classList.add('drag-over'); });
-            card.addEventListener('dragleave', () => { card.classList.remove('drag-over'); });
-            card.addEventListener('drop', (e) => {
-                e.preventDefault();
-                card.classList.remove('drag-over');
-                const nodeId = e.dataTransfer.getData('text/plain');
-                const node = nodes.find(n => n.id === nodeId);
-                if (node && getRootComp(node.comp).id !== root.id) {
-                    node.comp = root.id; node.id = `${root.id}X${root.nextSiteId++}`; selectedNodes.delete(node); 
-                    calculateShares(); draw(); renderCards();
-                }
-            });
-
-            card.addEventListener('mouseenter', () => mouseOverUI = true);
-            card.addEventListener('mouseleave', () => mouseOverUI = false);
 
             const header = document.createElement('div');
             header.className = 'card-header';
@@ -575,41 +570,38 @@
                 const row = document.createElement('div'); row.className = 'site-row';
                 if(selectedNodes.has(n)) row.style.backgroundColor = 'rgba(255, 255, 255, 0.1)';
                 
-                row.draggable = true;
-                row.addEventListener('dragstart', (e) => { e.dataTransfer.setData('text/plain', n.id); e.dataTransfer.effectAllowed = 'move'; });
-
                 let idPrefix = members.length > 1 ? `<span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:${activeCompanies.find(c=>c.id===n.comp).color};margin-right:4px;"></span>` : '';
 
                 row.innerHTML = `
-                    <div class="drag-handle" title="Drag to divest">⋮⋮</div>
                     <div class="site-id" title="Orig. Co ID: ${n.comp}">${idPrefix}#${n.id.split('X')[1]}</div>
                     <div class="site-name"><input type="text" id="name-${n.id}" class="name-input" placeholder="Name" value="${n.name || ''}"></div>
                     <div class="site-vol"><input type="number" id="vol-${n.id}" class="vol-input" value="${n.vol}" min="0" step="10"></div>
                     <div class="site-share" id="share-${n.id}">${n.share.toFixed(1)}%</div>
                     <div class="site-warning" id="warn-${n.id}" style="opacity: ${n.share >= THRESHOLD ? '1' : '0'};" title="Threshold Exceeded">${iconWarning}</div>
                 `;
+                
+                // Touch-friendly Transfer Button (Replaces Drag and Drop)
+                const transferBtn = document.createElement('button');
+                transferBtn.className = 'site-icon-btn'; transferBtn.innerHTML = iconTransfer; transferBtn.title = "Transfer to Competitor";
+                transferBtn.onclick = () => transferNode(n.id);
+                row.appendChild(transferBtn);
 
                 const delSiteBtn = document.createElement('button');
-                delSiteBtn.className = 'site-del-btn'; delSiteBtn.innerHTML = iconDelete; delSiteBtn.title = "Delete Site";
+                delSiteBtn.className = 'site-icon-btn del'; delSiteBtn.innerHTML = iconDelete; delSiteBtn.title = "Delete Site";
                 delSiteBtn.onclick = () => deleteNode(n.id);
                 row.appendChild(delSiteBtn);
 
                 row.addEventListener('mouseenter', () => { hoveredNode = n; draw(); });
                 row.addEventListener('mouseleave', () => { hoveredNode = null; draw(); });
 
-                // Event listener for Volume
-                const volInput = row.querySelector('.vol-input');
-                volInput.addEventListener('input', (e) => {
+                const input = row.querySelector('.vol-input');
+                input.addEventListener('input', (e) => {
                     const newVol = parseFloat(e.target.value); n.vol = isNaN(newVol) || newVol < 0 ? 0 : newVol;
                     calculateShares(); draw(); updateDataDisplays(); 
                 });
 
-                // Event listener for Name
                 const nameInput = row.querySelector('.name-input');
-                nameInput.addEventListener('input', (e) => {
-                    n.name = e.target.value;
-                    draw(); 
-                });
+                nameInput.addEventListener('input', (e) => { n.name = e.target.value; draw(); });
 
                 body.appendChild(row);
             });
@@ -708,14 +700,11 @@
                 ctx.fillStyle = '#ffffff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
                 
                 if (r > 12/zoom || isPriority) {
-                    ctx.font = '600 11px sans-serif';
-                    ctx.fillText(node.id.split('X')[1], 0, 0); 
+                    ctx.font = '600 11px sans-serif'; ctx.fillText(node.id.split('X')[1], 0, 0); 
                 }
                 
                 if (node.name) {
-                    ctx.font = '400 11px sans-serif';
-                    ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
-                    // Draw name directly below the visual edge of the node
+                    ctx.font = '400 11px sans-serif'; ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
                     ctx.fillText(node.name, 0, (r * zoom) + 14);
                 }
                 ctx.restore();
@@ -752,13 +741,87 @@
         ctx.restore();
     }
 
-    // --- Inputs ---
+    // --- Inputs (Mouse & Touch) ---
 
     function getMouseWorldPos(e) {
         const rect = canvas.getBoundingClientRect();
         return { x: (e.clientX - rect.left - cameraX) / zoom, y: (e.clientY - rect.top - cameraY) / zoom };
     }
 
+    // Pinch-to-zoom state
+    let initialPinchDist = null;
+    let initialZoom = 1;
+
+    canvas.addEventListener('touchstart', (e) => {
+        if (mouseOverUI) return;
+        
+        if (e.touches.length === 2) {
+            const dx = e.touches[0].clientX - e.touches[1].clientX;
+            const dy = e.touches[0].clientY - e.touches[1].clientY;
+            initialPinchDist = Math.sqrt(dx * dx + dy * dy);
+            initialZoom = zoom;
+            draggedNode = null;
+            isPanning = false;
+        } else if (e.touches.length === 1) {
+            initialPinchDist = null;
+            const touch = e.touches[0];
+            const worldPos = getMouseWorldPos(touch);
+            const hitNode = nodes.find(n => Math.sqrt(Math.pow(worldPos.x - n.x, 2) + Math.pow(worldPos.y - n.y, 2)) < getRadius(n.vol) + (10/zoom));
+
+            if (hitNode) {
+                selectedNodes.clear(); selectedNodes.add(hitNode);
+                draggedNode = hitNode; lastWorldX = worldPos.x; lastWorldY = worldPos.y;
+                renderCards(); draw();
+            } else {
+                selectedNodes.clear(); renderCards();
+                isPanning = true; startPanX = touch.clientX - cameraX; startPanY = touch.clientY - cameraY; draw();
+            }
+        }
+    }, { passive: false });
+
+    canvas.addEventListener('touchmove', (e) => {
+        if (mouseOverUI) return;
+        e.preventDefault(); // Prevent scrolling
+
+        if (e.touches.length === 2 && initialPinchDist) {
+            const dx = e.touches[0].clientX - e.touches[1].clientX;
+            const dy = e.touches[0].clientY - e.touches[1].clientY;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            
+            const zoomFactor = dist / initialPinchDist;
+            let newZoom = initialZoom * zoomFactor;
+            newZoom = Math.max(0.1, Math.min(newZoom, 10));
+
+            // Center zoom on the midpoint between the two fingers
+            const midX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+            const midY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+            const worldX = (midX - cameraX) / zoom;
+            const worldY = (midY - cameraY) / zoom;
+
+            cameraX = midX - (worldX * newZoom);
+            cameraY = midY - (worldY * newZoom);
+            zoom = newZoom; draw();
+            
+        } else if (e.touches.length === 1) {
+            const touch = e.touches[0];
+            const worldPos = getMouseWorldPos(touch);
+            
+            if (draggedNode) {
+                const dx = worldPos.x - lastWorldX; const dy = worldPos.y - lastWorldY;
+                selectedNodes.forEach(n => { n.x += dx; n.y += dy; });
+                lastWorldX = worldPos.x; lastWorldY = worldPos.y;
+                calculateShares(); draw(); updateDataDisplays();
+            } else if (isPanning) {
+                cameraX = touch.clientX - startPanX; cameraY = touch.clientY - startPanY; draw();
+            }
+        }
+    }, { passive: false });
+
+    canvas.addEventListener('touchend', (e) => {
+        draggedNode = null; isPanning = false; initialPinchDist = null;
+    });
+
+    // Desktop Mouse Events (Retained)
     canvas.addEventListener('wheel', (e) => {
         if (mouseOverUI) return;
         e.preventDefault();
