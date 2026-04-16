@@ -2,33 +2,37 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Local Market Simulator - Mobile Optimized</title>
-    <style>
-        /* Tells the browser to use dark-themed native form controls and scrollbars */
-        :root {
-            color-scheme: dark;
-        }
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Local Market Simulator - Desktop Optimized</title>
+    
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
 
+    <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
             background-color: #09090b; color: #e2e8f0; margin: 0; padding: 0;
-            height: 100vh; height: 100dvh; 
-            width: 100vw; overflow: hidden; display: flex; justify-content: center; align-items: center;
-            overscroll-behavior: none; 
-            touch-action: none;
+            height: 100vh; width: 100vw; overflow: hidden; display: flex; justify-content: center; align-items: center;
         }
 
         .app-container { position: relative; width: 100%; height: 100%; }
-        /* Make sure CSS forces the canvas to fill the container exactly */
-        canvas { display: block; width: 100%; height: 100%; cursor: grab; touch-action: none; }
-        canvas:active { cursor: grabbing; }
-        canvas.node-hover { cursor: pointer; }
+        #map { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; }
 
-        /* Floating Company Cards Sidebar */
+        /* --- UI Onboarding Animation --- */
+        @keyframes pulse-attention {
+            0% { box-shadow: 0 0 0 0 rgba(251, 191, 36, 0.8); transform: scale(1); }
+            50% { box-shadow: 0 0 0 10px rgba(251, 191, 36, 0); transform: scale(1.1); }
+            100% { box-shadow: 0 0 0 0 rgba(251, 191, 36, 0); transform: scale(1); }
+        }
+        .needs-attention {
+            animation: pulse-attention 1.5s infinite !important;
+            border-color: #fbbf24 !important;
+            color: #fbbf24 !important;
+            z-index: 3000;
+        }
+
         .company-sidebar {
             position: absolute; top: 20px; left: 20px; bottom: 90px; width: 340px;
-            display: flex; flex-direction: column; gap: 15px; overflow-y: auto; pointer-events: none; z-index: 10;
+            display: flex; flex-direction: column; gap: 15px; overflow-y: auto; pointer-events: none; z-index: 2000;
         }
         .company-sidebar::-webkit-scrollbar { display: none; }
 
@@ -37,14 +41,10 @@
             border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px; padding: 16px;
             box-shadow: 0 10px 20px rgba(0,0,0,0.4); pointer-events: auto; border-top: 4px solid; flex-shrink: 0; transition: all 0.2s ease;
         }
-        .company-card.drag-over {
-            background: rgba(255, 255, 255, 0.15); /* Highlight when dragging over */
-            box-shadow: 0 0 20px rgba(255, 255, 255, 0.2);
-        }
 
-        .card-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 4px; }
-        .card-title { font-weight: 700; font-size: 0.95rem; color: #f8fafc; line-height: 1.3; max-width: 140px; }
-        .card-header-actions { display: flex; gap: 4px; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
+        .card-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 4px; pointer-events: none; }
+        .card-title { font-weight: 700; font-size: 0.95rem; color: #f8fafc; line-height: 1.3; max-width: 140px; pointer-events: auto;}
+        .card-header-actions { display: flex; gap: 4px; align-items: center; flex-wrap: wrap; justify-content: flex-end; pointer-events: auto;}
 
         .action-btn {
             background: transparent; border: none; color: #94a3b8; font-weight: bold; cursor: pointer;
@@ -60,28 +60,28 @@
         }
         .add-site-btn:hover { background: rgba(255, 255, 255, 0.2); }
 
-        .card-body { display: flex; flex-direction: column; margin-top: 8px; }
+        .card-body { display: flex; flex-direction: column; margin-top: 8px; pointer-events: none; }
 
         .site-row {
             display: flex; align-items: center; gap: 6px; padding: 8px 4px; border-bottom: 1px solid rgba(255,255,255,0.05);
-            font-size: 0.85rem; border-radius: 4px; transition: all 0.2s; cursor: grab;
+            font-size: 0.85rem; border-radius: 4px; transition: background 0.2s, opacity 0.2s; cursor: grab; pointer-events: auto;
         }
         .site-row:active { cursor: grabbing; }
         .site-row:last-child { border-bottom: none; }
         .site-row:hover { background: rgba(255, 255, 255, 0.05); }
 
-        .site-id { width: 35px; color: #94a3b8; font-weight: 600; font-size: 0.75rem; pointer-events: none; }
+        .site-id { width: 35px; color: #94a3b8; font-weight: 600; font-size: 0.75rem; pointer-events: none;}
         .site-name { flex: 1; display: flex; }
         .site-vol { width: 60px; display: flex; }
         .site-share { width: 45px; text-align: right; font-weight: bold; color: #f8fafc; transition: color 0.3s; pointer-events: none;}
         .site-warning { width: 16px; display: flex; align-items: center; justify-content: center; transition: opacity 0.2s; pointer-events: none;}
 
-        .hint-text { font-size: 0.75rem; color: #64748b; font-style: italic; margin-top: 8px; }
+        .hint-text { font-size: 0.75rem; color: #64748b; font-style: italic; margin-top: 8px; pointer-events: none;}
 
         .vol-input, .name-input {
             width: 100%; box-sizing: border-box; padding: 6px; background: rgba(0,0,0,0.3); 
             border: 1px solid rgba(255,255,255,0.1); color: white; border-radius: 4px; 
-            font-family: monospace; font-size: 0.85rem; outline: none; transition: border 0.2s;
+            font-family: monospace; font-size: 0.85rem; outline: none; transition: border 0.2s; cursor: text;
         }
         .name-input { font-family: inherit; }
         .vol-input:focus, .name-input:focus { border-color: rgba(255,255,255,0.5); }
@@ -90,24 +90,21 @@
             background: transparent; border: none; color: #64748b; cursor: pointer; padding: 4px; border-radius: 4px;
             display: flex; align-items: center; justify-content: center; transition: all 0.2s; height: 28px; width: 28px;
         }
-        .site-icon-btn:hover { color: #f8fafc; background: rgba(255, 255, 255, 0.1); }
         .site-icon-btn.del:hover { color: #f87171; background: rgba(248, 113, 113, 0.15); }
 
-        /* Top Right Info Button */
-        .info-btn-container { position: absolute; top: 20px; right: 20px; z-index: 10; }
+        .info-btn-container { position: absolute; top: 20px; right: 20px; z-index: 2000; }
         .top-icon-btn {
             background: rgba(24, 24, 27, 0.85); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.1);
             color: #94a3b8; cursor: pointer; padding: 12px; border-radius: 50%; display: flex; align-items: center;
             justify-content: center; box-shadow: 0 10px 20px rgba(0,0,0,0.4); transition: all 0.2s;
         }
-        .top-icon-btn:hover { background: rgba(255,255,255,0.1); color: #f8fafc; transform: scale(1.05); }
+        .top-icon-btn:hover { background: rgba(255,255,255,0.1); color: #f8fafc; transform: scale(1.05) !important; }
 
-        /* Bottom Floating Toolbar */
         .bottom-toolbar {
             position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
             background: rgba(24, 24, 27, 0.85); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
             border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 16px; padding: 8px 16px;
-            display: flex; gap: 16px; align-items: center; box-shadow: 0 20px 40px rgba(0,0,0,0.6); pointer-events: auto; user-select: none; z-index: 10;
+            display: flex; gap: 16px; align-items: center; box-shadow: 0 20px 40px rgba(0,0,0,0.6); pointer-events: auto; user-select: none; z-index: 2000;
         }
 
         .tool-group { display: flex; align-items: center; gap: 6px; background: rgba(0,0,0,0.3); padding: 4px 6px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.05); position: relative; }
@@ -123,25 +120,18 @@
         .toolbar-label { display: flex; flex-direction: column; align-items: center; justify-content: center; color: #e2e8f0; min-width: 48px; font-size: 0.8rem; font-weight: 600; flex-shrink: 0;}
         .toolbar-label svg { stroke: #94a3b8; margin-bottom: 2px; }
 
-        /* Custom Tooltips (Hidden on Mobile) */
         .custom-tooltip {
             position: absolute; bottom: calc(100% + 12px); left: 50%; transform: translateX(-50%) translateY(10px);
             background: rgba(9, 9, 11, 0.95); color: #f8fafc; padding: 6px 10px; border-radius: 6px; font-size: 0.75rem;
-            font-weight: 600; white-space: nowrap; pointer-events: none; opacity: 0; transition: all 0.2s; border: 1px solid rgba(255,255,255,0.15); z-index: 100;
+            font-weight: 600; white-space: nowrap; pointer-events: none; opacity: 0; transition: all 0.2s; border: 1px solid rgba(255,255,255,0.15); z-index: 2100;
         }
-        @media (min-width: 769px) {
-            .icon-btn:hover .custom-tooltip, .tool-group:hover .custom-tooltip { opacity: 1; transform: translateX(-50%) translateY(0); }
-            .bottom-toolbar.show-all-tips .custom-tooltip { opacity: 1; transform: translateX(-50%) translateY(0); }
-        }
+        
+        .icon-btn:hover .custom-tooltip, .tool-group:hover .custom-tooltip { opacity: 1; transform: translateX(-50%) translateY(0); }
+        .bottom-toolbar.show-all-tips .custom-tooltip { opacity: 1; transform: translateX(-50%) translateY(0); }
 
-        /* Onboarding Animation */
-        @keyframes pulse-ring { 0% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.8); } 70% { box-shadow: 0 0 0 12px rgba(59, 130, 246, 0); } 100% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0); } }
-        .highlight-pulse { animation: pulse-ring 1.5s infinite; border-color: #3b82f6 !important; background: rgba(59, 130, 246, 0.2) !important; color: white; }
-
-        /* Modals */
         .modal-overlay {
             position: absolute; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); backdrop-filter:blur(6px);
-            display:none; justify-content:center; align-items:center; z-index: 100; opacity: 0; transition: opacity 0.3s; padding: 20px; box-sizing: border-box;
+            display:none; justify-content:center; align-items:center; z-index: 3000; opacity: 0; transition: opacity 0.3s; padding: 20px; box-sizing: border-box;
         }
         .modal-overlay.show { display: flex; opacity: 1; }
         .modal-content {
@@ -153,68 +143,67 @@
         .modal-close { position: absolute; top: 12px; right: 12px; cursor: pointer; background: transparent; border: none; color: #94a3b8; transition: color 0.2s; padding: 8px;}
         .modal-close:hover { color: white; }
         .modal-content h2 { margin-top: 0; color: #f8fafc; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 10px; font-size: 1.2rem;}
-        .modal-content h3 { font-size: 1rem; color: #fbbf24; margin-bottom: 6px; }
+        .modal-content h3 { font-size: 1rem; color: #fbbf24; margin-bottom: 6px; margin-top: 18px; }
         .modal-content p, .modal-content ul { font-size: 0.9rem; line-height: 1.5; color: #cbd5e1; margin-top: 0;}
         .modal-content ul { padding-left: 20px; }
         .modal-content li { margin-bottom: 8px; }
         .math-block { background: #09090b; padding: 12px; border-radius: 6px; font-family: monospace; color: #3b82f6; text-align: center; border: 1px solid rgba(255,255,255,0.05); margin: 15px 0; font-size: 0.85rem;}
 
-        /* --- MOBILE RESPONSIVE DESIGN --- */
-        @media (max-width: 768px) {
-            .company-sidebar {
-                width: 100%; left: 0; top: auto; 
-                bottom: calc(100px + env(safe-area-inset-bottom)); 
-                max-height: 40vh; padding: 10px 15px; box-sizing: border-box;
-                -webkit-mask-image: linear-gradient(to top, transparent 0%, black 15px);
-            }
-            .company-card { padding: 12px; }
-            .card-title { max-width: 100px; font-size: 0.85rem; }
-            
-            .bottom-toolbar {
-                width: 94%; 
-                bottom: calc(30px + env(safe-area-inset-bottom)); 
-                border-radius: 12px; 
-                border-left: 1px solid rgba(255, 255, 255, 0.1); 
-                border-right: 1px solid rgba(255, 255, 255, 0.1); 
-                border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-                justify-content: flex-start; overflow-x: auto; 
-                padding: 10px 15px; 
-                box-sizing: border-box;
-            }
-            .bottom-toolbar::-webkit-scrollbar { display: none; }
-            
-            .info-btn-container { top: calc(15px + env(safe-area-inset-top)); right: 15px; }
-            .top-icon-btn { padding: 8px; }
-            .top-icon-btn svg { width: 20px; height: 20px; }
-        }
-
-        .company-sidebar:hover ~ canvas, .bottom-toolbar:hover ~ canvas, .info-btn-container:hover ~ canvas { pointer-events: none; }
+        /* Loader */
+        .loader { display: none; width: 16px; height: 16px; border: 2px solid rgba(255,255,255,0.3); border-radius: 50%; border-top-color: #fff; animation: spin 1s ease-in-out infinite; margin-left: 8px; }
+        @keyframes spin { to { transform: rotate(360deg); } }
     </style>
 </head>
 <body>
 
     <div class="app-container">
+        
+        <div class="modal-overlay" id="postcodeModal" onclick="closeModals(event)">
+            <div class="modal-content" onclick="event.stopPropagation()">
+                <button class="modal-close" onclick="closeModals(event)"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
+                <h2>Add New Site</h2>
+                <p>Enter a valid UK Postcode to place a site precisely, or leave blank to drop it in the center of the screen.</p>
+                <input type="text" id="postcodeInput" placeholder="e.g. EC3A 7AW" class="vol-input" style="width:100%; padding: 12px; font-size: 1.1rem; margin-bottom: 15px; margin-top: 10px;">
+                <button id="btnConfirmPostcode" class="add-site-btn" style="width:100%; height: 44px; font-size: 1rem; display: flex; justify-content: center; align-items: center;">
+                    Place Site <div class="loader" id="postcodeLoader"></div>
+                </button>
+            </div>
+        </div>
 
         <div class="modal-overlay" id="helpModal" onclick="closeModals(event)">
             <div class="modal-content" onclick="event.stopPropagation()">
                 <button class="modal-close" onclick="closeModals(event)"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
                 <h2>Simulator Controls & Features</h2>
                 
-                <h3>Navigation & Editing</h3>
+                <h3>Map & Navigation</h3>
                 <ul>
-                    <li><strong>Pan:</strong> Click/Touch and drag empty space.</li>
-                    <li><strong>Zoom:</strong> Scroll mouse wheel, or <strong>pinch with two fingers</strong> on mobile.</li>
-                    <li><strong>Adjust Volume:</strong> Click a node to select it, then <strong>scroll your mouse wheel</strong> to resize it. (Or use the text input).</li>
+                    <li><strong>Pan & Zoom:</strong> Click and drag the map, scroll, or use pinch-to-zoom.</li>
+                    <li><strong>Select Sites:</strong> Click a marker on the map, or its row in the sidebar, to view its catchment radius and distance lines to competitors.</li>
+                    <li><strong>Center Map:</strong> Use the crosshair icon in the bottom toolbar to snap back to the starting view.</li>
+                </ul>
+
+                <h3>Adding & Editing Sites</h3>
+                <ul>
+                    <li><strong>Move Sites:</strong> Click and drag the colored site markers directly on the map.</li>
+                    <li><strong>Add via Postcode:</strong> Click "+ Node" on a company card to place a site via a UK postcode.</li>
+                    <li><strong>Quick Drop:</strong> Double-click anywhere on empty map space to instantly drop a new site.</li>
+                    <li><strong>Adjust Volume (Fast):</strong> Hover your mouse over any map marker and scroll your mouse wheel to easily change its volume in increments of 10.</li>
+                    <li><strong>Manual Edits:</strong> Use the text boxes in the sidebar rows to precisely edit site names and volumes.</li>
                 </ul>
 
                 <h3>M&A and Remedies</h3>
                 <ul>
-                    <li><strong>Mergers:</strong> Click the chain icon (<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>) on a company card, then click another company's chain icon to merge them.</li>
-                    <li><strong>Divestitures (Remedies):</strong> Click and drag a site row to another company's card, or click the Transfer icon (⟲) on any site row to instantly hand ownership of that site to the next competitor.</li>
+                    <li><strong>Mergers:</strong> Click the chain icon on a company card, then click another company's chain icon to simulate a merger between them.</li>
+                    <li><strong>Divestitures:</strong> Click and drag a site row from one company card and drop it onto another company to transfer ownership.</li>
+                    <li><strong>Delete:</strong> Click the 'X' on a site row to delete it, or the 'X' on a company card to remove the entire company.</li>
                 </ul>
 
-                <h3>Toolbar</h3>
-                <p>Use the bottom toolbar to add/remove companies, change the warning threshold, change the catchment size (Dmax), or instantly generate a new random market scenario.</p>
+                <h3>Market Parameters (Bottom Toolbar)</h3>
+                <ul>
+                    <li><strong>Threshold:</strong> Adjust the Safe Harbor threshold (%). Sites exceeding this market share will flag a warning and pulse red.</li>
+                    <li><strong>Radius (Dmax):</strong> Adjust the maximum catchment distance in Kilometers.</li>
+                    <li><strong>Shuffle:</strong> Generate a completely random local market scenario!</li>
+                </ul>
             </div>
         </div>
 
@@ -222,26 +211,20 @@
             <div class="modal-content" onclick="event.stopPropagation()">
                 <button class="modal-close" onclick="closeModals(event)"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
                 <h2>The Math of Local Overlap Analysis</h2>
-                
-                <p>In competition economics, authorities evaluate retail mergers by analyzing specific geographic catchments. If a merger creates a local monopoly, it harms consumers in that specific town.</p>
-
+                <p>In competition economics, authorities evaluate retail mergers by analyzing specific geographic catchments.</p>
                 <h3>1. The Catchment Area (Isochrone)</h3>
-                <p>We define a local market by a Maximum Distance (<strong>Dmax</strong>), representing how far a consumer is willing to travel.</p>
-
+                <p>We define a local market by a Maximum Distance (<strong>Dmax</strong> in Kilometers), representing how far a consumer is willing to travel.</p>
                 <h3>2. Distance Weighting</h3>
-                <p>Competitors located right next door exert massive pressure, while competitors on the edge of the catchment exert very little. We weight each store's volume by its distance ($d$):</p>
+                <p>Competitors located right next door exert massive pressure, while competitors on the edge of the catchment exert very little. We calculate real-world kilometer distance (d) using the Haversine formula, and weight each store's volume:</p>
                 <div class="math-block">Weight = (Dmax - d) / Dmax</div>
-
                 <h3>3. Calculating Market Share</h3>
                 <p>To find a specific site's local market share, we take its volume, add the weighted volume of all allied stores in range, and divide it by the total weighted volume of ALL stores in range.</p>
                 <div class="math-block">Share = Σ(Allied Weighted Vol) / Σ(Total Weighted Vol)</div>
-
-                <p>If this share exceeds the regulatory "Safe Harbor" threshold (e.g., 35%), the authorities will likely demand a divestiture remedy.</p>
             </div>
         </div>
 
         <div class="info-btn-container">
-            <button class="top-icon-btn highlight-pulse" id="btnInfo">
+            <button class="top-icon-btn needs-attention" id="btnInfo">
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
             </button>
         </div>
@@ -249,158 +232,148 @@
         <div class="company-sidebar" id="companySidebar"></div>
 
         <div class="bottom-toolbar" id="bottomToolbar">
-            <button class="icon-btn highlight-pulse" id="btnHelp">
-                <span class="custom-tooltip">Help</span>
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
-            </button>
+            <button class="icon-btn needs-attention" id="btnHelp"><span class="custom-tooltip">Help</span><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg></button>
             <div class="divider"></div>
-
-            <button class="icon-btn" id="btnCenter">
-                <span class="custom-tooltip">Center</span>
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="16"></line><line x1="8" y1="12" x2="16" y2="12"></line></svg>
-            </button>
+            <button class="icon-btn" id="btnCenter"><span class="custom-tooltip">Center Map</span><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="16"></line><line x1="8" y1="12" x2="16" y2="12"></line></svg></button>
             <div class="divider"></div>
-            
             <div class="tool-group">
                 <span class="custom-tooltip">Companies</span>
                 <button class="icon-btn" id="btnCompMinus" style="padding: 4px 8px;">-</button>
-                <div class="toolbar-label">
-                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2" width="16" height="20" rx="2" ry="2"></rect><path d="M9 22v-4h6v4"></path><path d="M8 6h.01"></path><path d="M16 6h.01"></path><path d="M12 6h.01"></path><path d="M12 10h.01"></path><path d="M12 14h.01"></path><path d="M16 10h.01"></path><path d="M16 14h.01"></path><path d="M8 10h.01"></path><path d="M8 14h.01"></path></svg>
-                </div>
+                <div class="toolbar-label"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="2" width="16" height="20" rx="2" ry="2"></rect><path d="M9 22v-4h6v4"></path><path d="M8 6h.01"></path><path d="M16 6h.01"></path><path d="M12 6h.01"></path><path d="M12 10h.01"></path><path d="M12 14h.01"></path><path d="M16 10h.01"></path><path d="M16 14h.01"></path><path d="M8 10h.01"></path><path d="M8 14h.01"></path></svg></div>
                 <button class="icon-btn" id="btnCompPlus" style="padding: 4px 8px;">+</button>
             </div>
-
             <div class="divider"></div>
-            <button class="icon-btn" id="btnReset">
-                <span class="custom-tooltip">Reset</span>
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><path d="M3 3v5h5"></path></svg>
-            </button>
+            <button class="icon-btn" id="btnReset"><span class="custom-tooltip">Reset</span><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><path d="M3 3v5h5"></path></svg></button>
             <div class="divider"></div>
             <div class="tool-group">
                 <span class="custom-tooltip">Threshold</span>
                 <button class="icon-btn" id="btnWarnMinus" style="padding: 4px 8px;">-</button>
-                <div class="toolbar-label">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
-                    <span id="warnVal">35%</span>
-                </div>
+                <div class="toolbar-label"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg><span id="warnVal">35%</span></div>
                 <button class="icon-btn" id="btnWarnPlus" style="padding: 4px 8px;">+</button>
             </div>
             <div class="divider"></div>
             <div class="tool-group">
                 <span class="custom-tooltip">Radius</span>
                 <button class="icon-btn" id="btnDistMinus" style="padding: 4px 8px;">-</button>
-                <div class="toolbar-label">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M12 12l5.3-5.3"></path><path d="M17 12v-5h-5"></path></svg>
-                    <span id="distVal">150</span>
-                </div>
+                <div class="toolbar-label"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><path d="M12 12l5.3-5.3"></path><path d="M17 12v-5h-5"></path></svg><span id="distVal">5km</span></div>
                 <button class="icon-btn" id="btnDistPlus" style="padding: 4px 8px;">+</button>
             </div>
             <div class="divider"></div>
-            <button class="icon-btn highlight-pulse" id="btnShuffle">
-                <span class="custom-tooltip">Shuffle</span>
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 3 21 3 21 8"></polyline><line x1="4" y1="20" x2="21" y2="3"></line><polyline points="21 16 21 21 16 21"></polyline><line x1="15" y1="15" x2="21" y2="21"></line><line x1="4" y1="4" x2="9" y2="9"></line></svg>
-            </button>
+            <button class="icon-btn needs-attention" id="btnShuffle"><span class="custom-tooltip">Shuffle</span><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 3 21 3 21 8"></polyline><line x1="4" y1="20" x2="21" y2="3"></line><polyline points="21 16 21 21 16 21"></polyline><line x1="15" y1="15" x2="21" y2="21"></line><line x1="4" y1="4" x2="9" y2="9"></line></svg></button>
         </div>
 
-        <canvas id="mapCanvas"></canvas>
+        <div id="map"></div>
     </div>
 
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+
 <script>
-    const canvas = document.getElementById('mapCanvas');
-    const ctx = canvas.getContext('2d');
-    
+    // --- Onboarding Removal ---
+    let onboardingActive = true;
+    function removeOnboarding() {
+        if (!onboardingActive) return;
+        onboardingActive = false;
+        document.querySelectorAll('.needs-attention').forEach(el => el.classList.remove('needs-attention'));
+    }
+    document.addEventListener('click', removeOnboarding, { capture: true, once: true });
+
+    // --- Map Initialization ---
+    // True coordinates for EC3A 7AW
+    const startLat = 51.514771;
+    const startLng = -0.076981;
+
+    const map = L.map('map', { zoomControl: false, doubleClickZoom: false }).setView([startLat, startLng], 12);
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+        maxZoom: 19, attribution: '&copy; <a href="https://carto.com/attributions">CARTO</a>'
+    }).addTo(map);
+    L.control.zoom({ position: 'bottomright' }).addTo(map);
+    map.on('dragstart', removeOnboarding);
+
+    function getDistanceFromLatLonInKm(lat1, lon1, lat2, lon2) {
+        const R = 6371; 
+        const dLat = (lat2 - lat1) * (Math.PI / 180); const dLon = (lon2 - lon1) * (Math.PI / 180);
+        const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) + Math.cos(lat1 * (Math.PI / 180)) * Math.cos(lat2 * (Math.PI / 180)) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+        return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))); 
+    }
+
     const companySidebar = document.getElementById('companySidebar');
     const bottomToolbar = document.getElementById('bottomToolbar');
     
-    // Core Layout Metrics
-    let cssWidth = window.innerWidth;
-    let cssHeight = window.innerHeight;
-    let cx = window.innerWidth / 2; 
-    let cy = window.innerHeight / 2;
+    let DMAX = 5; let THRESHOLD = 35;
+    const companyColors = ['#3b82f6', '#ef4444', '#22c55e', '#f59e0b', '#a855f7', '#06b6d4', '#f43f5e', '#6366f1', '#f97316', '#14b8a6'];
+    const fakeNames = ['Aperture Sci.', 'Giggle', 'SprawlMart', 'Buy n Large', 'Initech', 'Soylent Corp', 'Globex', 'Umbrella Corp', 'Acme Corp.', 'Wayne Ent.'];
 
-    // Simulation Config
-    let DMAX = 150;
-    let THRESHOLD = 35;
-    let onboardingActive = true;
+    const iconChain = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>`;
+    const iconBrokenChain = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 17H7A5 5 0 0 1 7 7h2"></path><path d="M15 7h2a5 5 0 1 1 0 10h-2"></path><line x1="8" y1="12" x2="16" y2="12"></line><line x1="2" y1="2" x2="22" y2="22"></line></svg>`;
+    const iconDelete = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>`;
+    const iconWarning = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#f87171" stroke-width="2"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>`;
 
-    // Render loop dirty flag
-    let needsRedraw = true;
+    let activeCompanies = []; let nodes = [];
+    let pendingMergeCompId = null; let activeNodeId = null; 
+    let pendingPostcodeCompId = null;
+    let mapCircles = {}; let mapMarkers = {}; let mapLines = [];
 
-    const companyColors = [
-        '#3b82f6', '#ef4444', '#22c55e', '#f59e0b', '#a855f7', 
-        '#06b6d4', '#f43f5e', '#6366f1', '#f97316', '#14b8a6'
-    ];
-
-    const fakeNames = [
-        'Aperture Sci.', 'Giggle', 'SprawlMart', 'Buy n Large', 'Initech', 
-        'Soylent Corp', 'Globex', 'Umbrella Corp', 'Acme Corp.', 'Wayne Ent.', 
-        'Cyberdyne', 'Massive Dynamic', 'Virtucon', 'Omni Consumer', 'Hooli', 'Pied Piper'
-    ];
-
-    // SVG Icons
-    const iconChain = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>`;
-    const iconBrokenChain = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 17H7A5 5 0 0 1 7 7h2"></path><path d="M15 7h2a5 5 0 1 1 0 10h-2"></path><line x1="8" y1="12" x2="16" y2="12"></line><line x1="2" y1="2" x2="22" y2="22" stroke="currentColor"></line></svg>`;
-    const iconDelete = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>`;
-    const iconWarning = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#f87171" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>`;
-    const iconTransfer = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="21 3 21 9 15 9"></polyline><path d="M20.49 14a9 9 0 1 1-2.12-9.36L21 9"></path></svg>`;
-
-    function getUniqueName() {
-        const usedNames = activeCompanies.map(c => c.name);
-        const available = fakeNames.filter(n => !usedNames.includes(n));
-        if (available.length === 0) return fakeNames[Math.floor(Math.random() * fakeNames.length)];
-        return available[Math.floor(Math.random() * available.length)];
+    function clearMapLayers() {
+        Object.values(mapMarkers).forEach(m => map.removeLayer(m));
+        Object.values(mapCircles).forEach(c => map.removeLayer(c));
+        mapLines.forEach(l => map.removeLayer(l));
+        mapMarkers = {}; mapCircles = {}; mapLines = [];
     }
 
-    function hexToRgba(hex, alpha) {
-        let r = parseInt(hex.slice(1, 3), 16), g = parseInt(hex.slice(3, 5), 16), b = parseInt(hex.slice(5, 7), 16);
-        return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-    }
+    map.on('click', () => { activeNodeId = null; draw(); renderCards(); });
 
-    // --- Onboarding & Modals ---
-    document.body.addEventListener('click', (e) => {
-        if (onboardingActive && e.target.closest('button')) {
-            onboardingActive = false;
-            document.querySelectorAll('.highlight-pulse').forEach(el => el.classList.remove('highlight-pulse'));
-        }
+    map.on('dblclick', (e) => {
+        removeOnboarding();
+        if (activeCompanies.length === 0) return;
+        const rootId = activeCompanies[0].id; 
+        const comp = activeCompanies.find(c => c.id === rootId);
+        const newNode = { id: `${rootId}X${comp.nextSiteId++}`, comp: rootId, vol: 100, lat: e.latlng.lat, lng: e.latlng.lng, name: 'NEW DROP' };
+        nodes.push(newNode); activeNodeId = newNode.id;
+        calculateShares(); draw(); renderCards();
     });
 
     function closeModals(e) {
-        if(e.target.closest('.modal-content') && !e.target.closest('.modal-close')) return;
+        if(e && e.target.closest('.modal-content') && !e.target.closest('.modal-close')) return;
         document.getElementById('helpModal').classList.remove('show');
         document.getElementById('infoModal').classList.remove('show');
+        document.getElementById('postcodeModal').classList.remove('show');
     }
     document.getElementById('btnInfo').onclick = () => document.getElementById('infoModal').classList.add('show');
     document.getElementById('btnHelp').onclick = () => document.getElementById('helpModal').classList.add('show');
 
-    // Tooltips
-    document.getElementById('btnHelp').addEventListener('mouseenter', () => bottomToolbar.classList.add('show-all-tips'));
-    document.getElementById('btnHelp').addEventListener('mouseleave', () => bottomToolbar.classList.remove('show-all-tips'));
+    async function geocodePostcode(postcode) {
+        try {
+            const clean = postcode.replace(/\s+/g, '').toLowerCase();
+            const res = await fetch(`https://api.postcodes.io/postcodes/${clean}`);
+            if (!res.ok) throw new Error('Not found');
+            const data = await res.json();
+            return { lat: data.result.latitude, lng: data.result.longitude, formatted: data.result.postcode };
+        } catch (err) { return null; }
+    }
 
-    let activeCompanies = [];
-    let nodes = [];
-    let hoveredNode = null;
-    let draggedNode = null;
-    let selectedNodes = new Set(); 
-    let lastWorldX = 0; let lastWorldY = 0; 
-    
-    let cameraX = 0; let cameraY = 0; let zoom = 1;
-    let isPanning = false; let startPanX = 0; let startPanY = 0;
-    
-    let pendingMergeCompId = null;
+    document.getElementById('btnConfirmPostcode').onclick = async () => {
+        if (!pendingPostcodeCompId) return;
+        const inputEl = document.getElementById('postcodeInput'); const loader = document.getElementById('postcodeLoader');
+        const val = inputEl.value.trim(); const comp = activeCompanies.find(c => c.id === pendingPostcodeCompId);
+        let targetLat, targetLng, siteName;
 
-    let mouseOverUI = false;
-    bottomToolbar.addEventListener('mouseenter', () => mouseOverUI = true);
-    bottomToolbar.addEventListener('mouseleave', () => mouseOverUI = false);
-    document.querySelector('.info-btn-container').addEventListener('mouseenter', () => mouseOverUI = true);
-    document.querySelector('.info-btn-container').addEventListener('mouseleave', () => mouseOverUI = false);
-    companySidebar.addEventListener('mouseenter', () => mouseOverUI = true);
-    companySidebar.addEventListener('mouseleave', () => mouseOverUI = false);
+        if (val === '') {
+            const center = map.getCenter(); targetLat = center.lat; targetLng = center.lng; siteName = 'CENTER';
+        } else {
+            loader.style.display = 'block'; const coords = await geocodePostcode(val); loader.style.display = 'none';
+            if (!coords) { alert("Invalid or missing UK Postcode."); return; }
+            targetLat = coords.lat; targetLng = coords.lng; siteName = coords.formatted;
+            map.flyTo([targetLat, targetLng], map.getZoom(), { duration: 1.5 });
+        }
 
-    // --- Core Logic ---
+        const newNode = { id: `${comp.id}X${comp.nextSiteId++}`, comp: comp.id, vol: 100, lat: targetLat, lng: targetLng, name: siteName };
+        nodes.push(newNode); activeNodeId = newNode.id;
+        closeModals(); inputEl.value = ''; calculateShares(); draw(); renderCards();
+    };
 
-    // Simple wrapper to flag the render loop to update the screen
-    function draw() {
-        needsRedraw = true;
+    function getUniqueName() {
+        const usedNames = activeCompanies.map(c => c.name); const available = fakeNames.filter(n => !usedNames.includes(n));
+        return available.length === 0 ? fakeNames[0] : available[Math.floor(Math.random() * available.length)];
     }
 
     function getRootComp(compId) {
@@ -411,10 +384,7 @@
 
     function getGroupedCompanies() {
         let roots = activeCompanies.filter(c => !c.mergedInto);
-        return roots.map(root => {
-            let members = activeCompanies.filter(c => getRootComp(c.id).id === root.id);
-            return { root, members };
-        });
+        return roots.map(root => { let members = activeCompanies.filter(c => getRootComp(c.id).id === root.id); return { root, members }; });
     }
 
     function toggleMerge(targetId) {
@@ -423,8 +393,7 @@
         else {
             let source = activeCompanies.find(c => c.id === pendingMergeCompId);
             if(source) source.mergedInto = targetId;
-            pendingMergeCompId = null;
-            calculateShares();
+            pendingMergeCompId = null; calculateShares();
         }
         draw(); renderCards();
     }
@@ -439,92 +408,68 @@
         if (pendingMergeCompId === compId) pendingMergeCompId = null;
         activeCompanies = activeCompanies.filter(c => c.id !== compId);
         nodes = nodes.filter(n => n.comp !== compId);
-        selectedNodes.forEach(n => { if (n.comp === compId) selectedNodes.delete(n); });
-        if (hoveredNode && hoveredNode.comp === compId) hoveredNode = null;
-        if (draggedNode && draggedNode.comp === compId) draggedNode = null;
+        if(activeNodeId && !nodes.find(n => n.id === activeNodeId)) activeNodeId = null;
         calculateShares(); draw(); renderCards();
     }
 
     function deleteNode(nodeId) {
-        const nodeToRemove = nodes.find(n => n.id === nodeId);
         nodes = nodes.filter(n => n.id !== nodeId);
-        if (nodeToRemove) selectedNodes.delete(nodeToRemove);
-        if (draggedNode && draggedNode.id === nodeId) draggedNode = null;
-        if (hoveredNode && hoveredNode.id === nodeId) hoveredNode = null;
+        if (activeNodeId === nodeId) activeNodeId = null;
         calculateShares(); draw(); renderCards();
     }
     
-    // Rotates the node to the next available company
-    function transferNode(nodeId) {
+    function moveNodeToCompany(nodeId, targetCompId) {
         const node = nodes.find(n => n.id === nodeId);
-        if (!node) return;
+        if (!node || getRootComp(node.comp).id === targetCompId) return;
+
+        const nextRoot = activeCompanies.find(c => c.id === targetCompId);
+        node.comp = nextRoot.id; 
+        const newId = `${nextRoot.id}X${nextRoot.nextSiteId++}`;
+        if (activeNodeId === node.id) activeNodeId = newId;
         
-        let rootComps = activeCompanies.filter(c => !c.mergedInto);
-        if (rootComps.length <= 1) return; // Nowhere to transfer to
+        if(mapCircles[node.id]) { map.removeLayer(mapCircles[node.id]); delete mapCircles[node.id]; }
+        if(mapMarkers[node.id]) { map.removeLayer(mapMarkers[node.id]); delete mapMarkers[node.id]; }
         
-        let currentRoot = getRootComp(node.comp);
-        let currentIndex = rootComps.findIndex(c => c.id === currentRoot.id);
-        let nextRoot = rootComps[(currentIndex + 1) % rootComps.length];
-        
-        transferNodeToCompany(node.id, nextRoot.id);
+        node.id = newId; calculateShares(); draw(); renderCards();
     }
 
-    // Explicitly transfers a node to a specific company (used by drag and drop)
-    function transferNodeToCompany(nodeId, targetCompId) {
-        const node = nodes.find(n => n.id === nodeId);
-        if (!node) return;
-        
-        let targetRoot = getRootComp(targetCompId);
-        if (!targetRoot) return;
-        
-        // Prevent transferring to the same company
-        if (getRootComp(node.comp).id === targetRoot.id) return;
-        
-        node.comp = targetRoot.id; 
-        node.id = `${targetRoot.id}X${targetRoot.nextSiteId++}`; 
-        selectedNodes.delete(node); 
-        calculateShares(); draw(); renderCards();
-    }
-
-    // --- Init & Toolbar ---
     function initBaseState() {
-        cameraX = 0; cameraY = 0; zoom = 1; selectedNodes.clear(); pendingMergeCompId = null;
+        clearMapLayers(); 
+        pendingMergeCompId = null; activeNodeId = null; pendingPostcodeCompId = null;
         activeCompanies = [{ id: 1, name: getUniqueName(), color: companyColors[0], nextSiteId: 2, collapsed: false, mergedInto: null }];
-        nodes = [{ id: '1X1', comp: 1, vol: 100, x: cx, y: cy, name: '' }];
+        nodes = [{ id: '1X1', comp: 1, vol: 100, lat: startLat, lng: startLng, name: 'EC3A 7AW', share: 100 }];
+        map.setView([startLat, startLng], 12);
         calculateShares(); draw(); renderCards();
     }
 
     function updateToolbarDisplay() {
         document.getElementById('warnVal').innerText = `${THRESHOLD}%`;
-        document.getElementById('distVal').innerText = DMAX;
+        document.getElementById('distVal').innerText = `${DMAX}km`;
     }
 
-    document.getElementById('btnCenter').onclick = () => { cameraX = 0; cameraY = 0; draw(); };
+    document.getElementById('btnCenter').onclick = () => { map.setView([startLat, startLng], 12); };
     document.getElementById('btnReset').onclick = initBaseState;
 
-    document.getElementById('btnCompMinus').onclick = () => { 
-        if (activeCompanies.length > 1) { deleteCompany(activeCompanies[activeCompanies.length - 1].id); } 
-    };
-
+    document.getElementById('btnCompMinus').onclick = () => { if (activeCompanies.length > 1) { deleteCompany(activeCompanies[activeCompanies.length - 1].id); } };
     document.getElementById('btnCompPlus').onclick = () => { 
         if (activeCompanies.length < 10) { 
-            const nextIdx = activeCompanies.length;
-            const newId = (activeCompanies.length > 0 ? Math.max(...activeCompanies.map(c=>c.id)) : 0) + 1;
+            const nextIdx = activeCompanies.length; const newId = (activeCompanies.length > 0 ? Math.max(...activeCompanies.map(c=>c.id)) : 0) + 1;
             activeCompanies.push({ id: newId, name: getUniqueName(), color: companyColors[nextIdx], nextSiteId: 1, collapsed: false, mergedInto: null });
             renderCards(); 
         } 
     };
 
-    document.getElementById('btnWarnMinus').onclick = () => { if(THRESHOLD > 5) THRESHOLD -= 5; updateToolbarDisplay(); updateDataDisplays(); draw(); };
-    document.getElementById('btnWarnPlus').onclick = () => { if(THRESHOLD < 100) THRESHOLD += 5; updateToolbarDisplay(); updateDataDisplays(); draw(); };
-    document.getElementById('btnDistMinus').onclick = () => { if(DMAX > 20) DMAX -= 10; updateToolbarDisplay(); calculateShares(); draw(); updateDataDisplays(); };
-    document.getElementById('btnDistPlus').onclick = () => { if(DMAX < 500) DMAX += 10; updateToolbarDisplay(); calculateShares(); draw(); updateDataDisplays(); };
+    document.getElementById('btnWarnMinus').onclick = () => { if(THRESHOLD > 5) THRESHOLD -= 5; updateToolbarDisplay(); calculateShares(); draw(); updateDataDisplays(); };
+    document.getElementById('btnWarnPlus').onclick = () => { if(THRESHOLD < 100) THRESHOLD += 5; updateToolbarDisplay(); calculateShares(); draw(); updateDataDisplays(); };
+    document.getElementById('btnDistMinus').onclick = () => { if(DMAX > 1) DMAX -= 1; updateToolbarDisplay(); calculateShares(); draw(); updateDataDisplays(); };
+    document.getElementById('btnDistPlus').onclick = () => { if(DMAX < 50) DMAX += 1; updateToolbarDisplay(); calculateShares(); draw(); updateDataDisplays(); };
 
     document.getElementById('btnShuffle').onclick = () => {
-        const spread = DMAX * 0.9 / zoom; 
-        const numComps = Math.floor(Math.random() * 4) + 4; 
+        clearMapLayers(); 
         
+        const numComps = Math.floor(Math.random() * 4) + 2; 
         let tempComps = []; let tempUsedNames = [];
+        
         for (let i = 0; i < numComps; i++) {
             let avail = fakeNames.filter(n => !tempUsedNames.includes(n));
             let name = avail.length > 0 ? avail[Math.floor(Math.random() * avail.length)] : "Corp";
@@ -532,89 +477,58 @@
             tempComps.push({ id: i+1, name: name, color: companyColors[i % 10], nextSiteId: 1, collapsed: false, mergedInto: null });
         }
 
-        activeCompanies = tempComps; nodes = []; selectedNodes.clear(); pendingMergeCompId = null;
-
+        activeCompanies = tempComps; nodes = []; pendingMergeCompId = null; activeNodeId = null;
+        
+        const center = map.getCenter();
         activeCompanies.forEach(comp => {
             const numNodesForComp = Math.floor(Math.random() * 3) + 1;
             for (let i = 0; i < numNodesForComp; i++) {
                 const vol = Math.floor(Math.random() * 26 + 5) * 10; 
-                const spawnX = ((window.innerWidth / 2) - cameraX) / zoom + (Math.random() * spread * 2 - spread);
-                const spawnY = ((window.innerHeight / 2) - cameraY) / zoom + (Math.random() * spread * 2 - spread);
-                nodes.push({ id: `${comp.id}X${comp.nextSiteId++}`, comp: comp.id, vol: vol, x: spawnX, y: spawnY, name: '' });
+                const spawnLat = center.lat + ((Math.random() - 0.5) * 0.15);
+                const spawnLng = center.lng + ((Math.random() - 0.5) * 0.25);
+                nodes.push({ id: `${comp.id}X${comp.nextSiteId++}`, comp: comp.id, vol: vol, lat: spawnLat, lng: spawnLng, name: '', share: 0 });
             }
         });
 
         calculateShares(); draw(); renderCards();
     };
 
-    // --- UI Rendering ---
-
     function renderCards() {
         companySidebar.innerHTML = '';
         const groupedComps = getGroupedCompanies();
 
         groupedComps.forEach(group => {
-            const root = group.root;
-            const members = group.members;
-            
-            const card = document.createElement('div');
-            card.className = 'company-card';
-            card.style.borderTopColor = root.color;
-            
-            // Allow this card to be a drop target for nodes
-            card.addEventListener('dragover', (e) => {
-                e.preventDefault(); // Necessary to allow dropping
-                card.classList.add('drag-over');
-            });
-            card.addEventListener('dragleave', (e) => {
-                card.classList.remove('drag-over');
-            });
+            const root = group.root; const members = group.members;
+            const card = document.createElement('div'); card.className = 'company-card'; card.style.borderTopColor = root.color;
+
+            card.addEventListener('dragover', (e) => { e.preventDefault(); card.style.boxShadow = `0 0 15px ${root.color}`; card.style.borderColor = root.color; });
+            card.addEventListener('dragleave', (e) => { card.style.boxShadow = ''; card.style.borderColor = ''; card.style.borderTopColor = root.color; });
             card.addEventListener('drop', (e) => {
-                e.preventDefault();
-                card.classList.remove('drag-over');
+                e.preventDefault(); card.style.boxShadow = ''; card.style.borderColor = ''; card.style.borderTopColor = root.color;
                 const draggedNodeId = e.dataTransfer.getData('text/plain');
-                if (draggedNodeId) {
-                    transferNodeToCompany(draggedNodeId, root.id);
-                }
+                if (draggedNodeId) moveNodeToCompany(draggedNodeId, root.id);
             });
 
-            const header = document.createElement('div');
-            header.className = 'card-header';
+            const header = document.createElement('div'); header.className = 'card-header';
             const combinedName = members.map(m => m.name).join(' + ');
             header.innerHTML = `<div class="card-title" title="${combinedName}">${combinedName}</div>`;
             
-            const actionsDiv = document.createElement('div');
-            actionsDiv.className = 'card-header-actions';
+            const actionsDiv = document.createElement('div'); actionsDiv.className = 'card-header-actions';
 
-            const mergeBtn = document.createElement('button');
-            mergeBtn.className = 'action-btn';
-            if (members.length > 1) {
-                mergeBtn.innerHTML = iconBrokenChain; mergeBtn.title = "Unmerge Companies"; mergeBtn.onclick = () => unmerge(root.id);
-            } else {
-                mergeBtn.innerHTML = iconChain; mergeBtn.title = pendingMergeCompId === null ? "Merge with another company" : (pendingMergeCompId === root.id ? "Cancel Merge" : "Complete Merge");
-                if (pendingMergeCompId === root.id) mergeBtn.classList.add('active-merge');
-                mergeBtn.onclick = () => toggleMerge(root.id);
-            }
+            const mergeBtn = document.createElement('button'); mergeBtn.className = 'action-btn';
+            if (members.length > 1) { mergeBtn.innerHTML = iconBrokenChain; mergeBtn.title = "Unmerge"; mergeBtn.onclick = () => unmerge(root.id); } 
+            else { mergeBtn.innerHTML = iconChain; mergeBtn.title = "Merge"; if (pendingMergeCompId === root.id) mergeBtn.classList.add('active-merge'); mergeBtn.onclick = () => toggleMerge(root.id); }
             actionsDiv.appendChild(mergeBtn);
 
-            const addBtn = document.createElement('button');
-            addBtn.className = 'add-site-btn'; addBtn.innerText = '+ Node';
-            addBtn.onclick = () => {
-                const spawnX = ((window.innerWidth / 2) - cameraX) / zoom + (Math.random() * 100 - 50);
-                const spawnY = ((window.innerHeight / 2) - cameraY) / zoom + (Math.random() * 100 - 50);
-                const newNode = { id: `${root.id}X${root.nextSiteId++}`, comp: root.id, vol: 100, x: spawnX, y: spawnY, name: '' };
-                nodes.push(newNode); if (!event.ctrlKey && !event.metaKey) selectedNodes.clear(); selectedNodes.add(newNode);
-                calculateShares(); draw(); renderCards();
-            };
+            const addBtn = document.createElement('button'); addBtn.className = 'add-site-btn'; addBtn.innerText = '+ Node';
+            addBtn.onclick = () => { pendingPostcodeCompId = root.id; document.getElementById('postcodeModal').classList.add('show'); document.getElementById('postcodeInput').focus(); };
             actionsDiv.appendChild(addBtn);
 
-            const minBtn = document.createElement('button');
-            minBtn.className = 'action-btn'; minBtn.innerHTML = root.collapsed ? '+' : '−'; minBtn.title = "Toggle View";
+            const minBtn = document.createElement('button'); minBtn.className = 'action-btn'; minBtn.innerHTML = root.collapsed ? '+' : '−';
             minBtn.onclick = () => { root.collapsed = !root.collapsed; renderCards(); };
             actionsDiv.appendChild(minBtn);
 
-            const delCompBtn = document.createElement('button');
-            delCompBtn.className = 'action-btn delete-btn'; delCompBtn.innerHTML = iconDelete; delCompBtn.title = "Delete Company";
+            const delCompBtn = document.createElement('button'); delCompBtn.className = 'action-btn delete-btn'; delCompBtn.innerHTML = iconDelete;
             delCompBtn.onclick = () => deleteCompany(root.id);
             actionsDiv.appendChild(delCompBtn);
 
@@ -623,9 +537,8 @@
             const body = document.createElement('div'); body.className = 'card-body';
             if (root.collapsed) body.style.display = 'none';
 
-            let groupNodes = [];
-            members.forEach(m => { groupNodes = groupNodes.concat(nodes.filter(n => n.comp === m.id)); });
-            groupNodes.sort((a,b) => a.share - b.share);
+            let groupNodes = []; members.forEach(m => { groupNodes = groupNodes.concat(nodes.filter(n => n.comp === m.id)); });
+            groupNodes.sort((a,b) => b.share - a.share); 
             
             if (groupNodes.length === 0) {
                 const empty = document.createElement('div'); empty.className = 'hint-text'; empty.innerText = 'No sites active.'; body.appendChild(empty);
@@ -633,51 +546,35 @@
 
             groupNodes.forEach(n => {
                 const row = document.createElement('div'); row.className = 'site-row';
-                if(selectedNodes.has(n)) row.style.backgroundColor = 'rgba(255, 255, 255, 0.1)';
-                
-                // Make the row draggable for the drag-and-drop divestiture mechanism
                 row.draggable = true;
-                row.addEventListener('dragstart', (e) => {
-                    e.dataTransfer.setData('text/plain', n.id);
-                    e.dataTransfer.effectAllowed = 'move';
-                    row.style.opacity = '0.4'; // Visual cue while dragging
-                });
-                row.addEventListener('dragend', (e) => {
-                    row.style.opacity = '1';
-                });
-                
+                row.ondragstart = (e) => { e.dataTransfer.setData('text/plain', n.id); row.style.opacity = '0.4'; };
+                row.ondragend = () => { row.style.opacity = '1'; };
+
+                if (activeNodeId === n.id) { row.style.backgroundColor = 'rgba(255, 255, 255, 0.15)'; row.style.borderLeft = `3px solid ${activeCompanies.find(c=>c.id===n.comp).color}`; }
                 let idPrefix = members.length > 1 ? `<span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:${activeCompanies.find(c=>c.id===n.comp).color};margin-right:4px;"></span>` : '';
 
                 row.innerHTML = `
                     <div class="site-id" title="Orig. Co ID: ${n.comp}">${idPrefix}#${n.id.split('X')[1]}</div>
                     <div class="site-name"><input type="text" id="name-${n.id}" class="name-input" placeholder="Name" value="${n.name || ''}"></div>
                     <div class="site-vol"><input type="number" id="vol-${n.id}" class="vol-input" value="${n.vol}" min="0" step="10"></div>
-                    <div class="site-share" id="share-${n.id}">${n.share.toFixed(1)}%</div>
+                    <div class="site-share" id="share-${n.id}">${(n.share || 100).toFixed(1)}%</div>
                     <div class="site-warning" id="warn-${n.id}" style="opacity: ${n.share >= THRESHOLD ? '1' : '0'};" title="Threshold Exceeded">${iconWarning}</div>
                 `;
                 
-                const transferBtn = document.createElement('button');
-                transferBtn.className = 'site-icon-btn'; transferBtn.innerHTML = iconTransfer; transferBtn.title = "Transfer to Competitor";
-                transferBtn.onclick = () => transferNode(n.id);
-                row.appendChild(transferBtn);
+                row.onclick = (e) => {
+                    if(e.target.tagName === 'INPUT' || e.target.closest('button')) return;
+                    activeNodeId = activeNodeId === n.id ? null : n.id; draw(); renderCards();
+                };
 
-                const delSiteBtn = document.createElement('button');
-                delSiteBtn.className = 'site-icon-btn del'; delSiteBtn.innerHTML = iconDelete; delSiteBtn.title = "Delete Site";
-                delSiteBtn.onclick = () => deleteNode(n.id);
+                const delSiteBtn = document.createElement('button'); delSiteBtn.className = 'site-icon-btn del'; delSiteBtn.innerHTML = iconDelete;
+                delSiteBtn.onclick = (e) => { e.stopPropagation(); deleteNode(n.id); }
                 row.appendChild(delSiteBtn);
-
-                row.addEventListener('mouseenter', () => { hoveredNode = n; draw(); });
-                row.addEventListener('mouseleave', () => { hoveredNode = null; draw(); });
 
                 const input = row.querySelector('.vol-input');
                 input.addEventListener('input', (e) => {
                     const newVol = parseFloat(e.target.value); n.vol = isNaN(newVol) || newVol < 0 ? 0 : newVol;
                     calculateShares(); draw(); updateDataDisplays(); 
                 });
-
-                const nameInput = row.querySelector('.name-input');
-                nameInput.addEventListener('input', (e) => { n.name = e.target.value; draw(); });
-
                 body.appendChild(row);
             });
 
@@ -688,311 +585,164 @@
     function updateDataDisplays() {
         nodes.forEach(n => {
             const shareEl = document.getElementById(`share-${n.id}`); const warnEl = document.getElementById(`warn-${n.id}`);
-            if (shareEl) shareEl.innerText = `${n.share.toFixed(1)}%`;
+            if (shareEl) shareEl.innerText = `${(n.share || 100).toFixed(1)}%`;
             if (warnEl) warnEl.style.opacity = n.share >= THRESHOLD ? '1' : '0';
-            
             const volEl = document.getElementById(`vol-${n.id}`);
             if (volEl && document.activeElement !== volEl) volEl.value = n.vol;
-
-            const nameEl = document.getElementById(`name-${n.id}`);
-            if (nameEl && document.activeElement !== nameEl) nameEl.value = n.name || '';
         });
     }
-
-    // --- Math & Visual Engine ---
-
-    function resizeCanvas() {
-        // Track the actual CSS dimensions of the screen
-        cssWidth = window.innerWidth;
-        cssHeight = window.innerHeight;
-        
-        // Find the device pixel ratio (e.g., 2 or 3 on retina/mobile screens)
-        const dpr = window.devicePixelRatio || 1;
-        
-        // Multiply canvas internal resolution by the DPR for crisp rendering
-        canvas.width = cssWidth * dpr;
-        canvas.height = cssHeight * dpr;
-        
-        // Lock the canvas CSS to the screen dimensions so it doesn't inflate the container
-        canvas.style.width = cssWidth + 'px';
-        canvas.style.height = cssHeight + 'px';
-        
-        // Reset and scale the drawing context so 1 unit = 1 CSS pixel
-        ctx.setTransform(1, 0, 0, 1, 0, 0); 
-        ctx.scale(dpr, dpr);
-        
-        cx = cssWidth / 2; cy = cssHeight / 2;
-        draw();
-    }
-    window.addEventListener('resize', resizeCanvas);
-
-    function getRadius(vol) { return Math.max(4, Math.sqrt(vol) * 1.5); }
 
     function calculateShares() {
         nodes.forEach(target => {
             let num = 0; let den = 0; let targetRoot = getRootComp(target.comp);
             nodes.forEach(neighbor => {
-                const dist = Math.sqrt(Math.pow(target.x - neighbor.x, 2) + Math.pow(target.y - neighbor.y, 2));
-                if (dist <= DMAX) {
-                    const weight = (DMAX - dist) / DMAX; const weightedVol = weight * neighbor.vol; den += weightedVol; 
-                    if (targetRoot.id === getRootComp(neighbor.comp).id) num += weightedVol; 
+                const distKm = getDistanceFromLatLonInKm(target.lat, target.lng, neighbor.lat, neighbor.lng);
+                if (distKm <= DMAX) {
+                    const weight = (DMAX - distKm) / DMAX; const weightedVol = weight * neighbor.vol; 
+                    den += weightedVol; if (targetRoot.id === getRootComp(neighbor.comp).id) { num += weightedVol; }
                 }
             });
             target.share = den > 0 ? (num / den) * 100 : 100; 
         });
     }
 
-    // This actually paints the screen (called via requestAnimationFrame)
-    function renderCanvas() {
-        ctx.clearRect(0, 0, cssWidth, cssHeight);
-        ctx.save(); ctx.translate(cameraX, cameraY); ctx.scale(zoom, zoom);
+    function drawDistanceLines() {
+        mapLines.forEach(line => map.removeLayer(line)); mapLines = [];
+        if (activeNodeId) {
+            const activeNode = nodes.find(n => n.id === activeNodeId);
+            if (activeNode) {
+                nodes.forEach(neighbor => {
+                    if (neighbor.id !== activeNodeId) {
+                        const distKm = getDistanceFromLatLonInKm(activeNode.lat, activeNode.lng, neighbor.lat, neighbor.lng);
+                        if (distKm <= DMAX) {
+                            const compColor = getRootComp(neighbor.comp).color;
+                            
+                            const line = L.polyline(
+                                [[activeNode.lat, activeNode.lng], [neighbor.lat, neighbor.lng]], 
+                                { color: compColor, weight: 2.5, opacity: 0.6, dashArray: '4, 8', interactive: false }
+                            ).addTo(map);
+                            mapLines.push(line);
 
-        const activeNode = hoveredNode || (selectedNodes.size === 1 ? [...selectedNodes][0] : null);
-
-        if (activeNode) {
-            const activeRootColor = getRootComp(activeNode.comp).color;
-            nodes.forEach(neighbor => {
-                if (activeNode.id !== neighbor.id) {
-                    const dist = Math.sqrt(Math.pow(activeNode.x - neighbor.x, 2) + Math.pow(activeNode.y - neighbor.y, 2));
-                    if (dist <= DMAX) {
-                        ctx.beginPath(); ctx.moveTo(activeNode.x, activeNode.y); ctx.lineTo(neighbor.x, neighbor.y);
-                        let grad = ctx.createLinearGradient(activeNode.x, activeNode.y, neighbor.x, neighbor.y);
-                        grad.addColorStop(0, hexToRgba(activeRootColor, 0.6)); grad.addColorStop(1, hexToRgba(getRootComp(neighbor.comp).color, 0.1));
-                        ctx.strokeStyle = grad; ctx.lineWidth = 1.5 / zoom; ctx.stroke();
+                            const midLat = (activeNode.lat + neighbor.lat) / 2;
+                            const midLng = (activeNode.lng + neighbor.lng) / 2;
+                            
+                            const labelHtml = `
+                                <div style="transform: translate(-50%, -50%); color: ${compColor}; font-size: 0.8rem; font-weight: 800; white-space: nowrap; pointer-events: none; text-shadow: 0px 0px 4px #000, 0px 0px 4px #000, 1px 1px 2px #000;">
+                                    ${distKm.toFixed(2)} km
+                                </div>
+                            `;
+                            
+                            const labelIcon = L.divIcon({ html: labelHtml, className: '', iconSize: [0, 0] });
+                            const labelMarker = L.marker([midLat, midLng], { icon: labelIcon, interactive: false }).addTo(map);
+                            mapLines.push(labelMarker);
+                        }
                     }
-                }
-            });
-
-            ctx.beginPath(); ctx.arc(activeNode.x, activeNode.y, DMAX, 0, Math.PI * 2);
-            let radGrad = ctx.createRadialGradient(activeNode.x, activeNode.y, DMAX*0.8, activeNode.x, activeNode.y, DMAX);
-            radGrad.addColorStop(0, hexToRgba(activeRootColor, 0.05)); radGrad.addColorStop(1, hexToRgba(activeRootColor, 0.0));
-            ctx.fillStyle = radGrad; ctx.fill(); ctx.strokeStyle = hexToRgba(activeRootColor, 0.2); ctx.lineWidth = 1 / zoom; ctx.stroke();
+                });
+            }
         }
+    }
 
-        const normalNodes = nodes.filter(n => !selectedNodes.has(n) && n !== hoveredNode);
-        const priorityNodes = nodes.filter(n => selectedNodes.has(n) || n === hoveredNode);
-
-        [...normalNodes, ...priorityNodes].forEach(node => {
-            const r = getRadius(node.vol); const nodeColor = getRootComp(node.comp).color; 
-            const isPriority = hoveredNode === node || selectedNodes.has(node);
+    function updateNodeVisuals() {
+        nodes.forEach(n => {
+            const nRoot = getRootComp(n.comp); const isWarn = n.share >= THRESHOLD; const isSel = activeNodeId === n.id; 
+            const cColor = isWarn ? '#ef4444' : nRoot.color;
+            if (mapCircles[n.id]) { mapCircles[n.id].setRadius(DMAX * 1000); mapCircles[n.id].setStyle({ color: cColor, fillColor: cColor, opacity: isSel ? 1 : 0, fillOpacity: isSel ? (isWarn ? 0.2 : 0.08) : 0, weight: isWarn ? 2 : 1 }); }
             
-            if (node.share >= THRESHOLD) {
-                ctx.beginPath(); ctx.arc(node.x, node.y, r + (6/zoom), 0, Math.PI * 2);
-                ctx.fillStyle = 'rgba(248, 113, 113, 0.15)'; ctx.fill(); ctx.strokeStyle = 'rgba(248, 113, 113, 0.8)'; ctx.lineWidth = 2 / zoom; ctx.stroke();
-            }
-
-            if (selectedNodes.has(node)) {
-                ctx.beginPath(); ctx.arc(node.x, node.y, r + (3/zoom), 0, Math.PI * 2);
-                ctx.strokeStyle = 'white'; ctx.lineWidth = 2 / zoom; ctx.stroke();
-            }
-
-            ctx.beginPath(); ctx.arc(node.x, node.y, r, 0, Math.PI * 2);
-            ctx.fillStyle = nodeColor; ctx.shadowColor = nodeColor; ctx.shadowBlur = isPriority ? 25 : 10;
-            ctx.fill(); ctx.shadowBlur = 0;
-
-            if (r > 12/zoom || isPriority || node.name) {
-                ctx.save(); ctx.translate(node.x, node.y); ctx.scale(1/zoom, 1/zoom);
-                ctx.fillStyle = '#ffffff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            const coreEl = document.getElementById(`core-${n.id}`);
+            if (coreEl) {
+                const baseCoreSize = Math.max(16, Math.min(80, 12 + (n.vol / 6))); 
+                const nSize = isSel ? baseCoreSize + 6 : baseCoreSize;
+                coreEl.style.width = `${nSize}px`; coreEl.style.height = `${nSize}px`;
+                coreEl.style.backgroundColor = nRoot.color; coreEl.style.border = `${isSel ? 3 : 2}px solid ${isWarn ? '#ef4444' : 'white'}`;
+                coreEl.style.boxShadow = `0 0 10px ${isWarn ? '#ef4444' : nRoot.color}`;
+                coreEl.innerText = n.id.split('X')[1];
                 
-                if (r > 12/zoom || isPriority) {
-                    ctx.font = '600 11px sans-serif'; ctx.fillText(node.id.split('X')[1], 0, 0); 
+                const tagEl = document.getElementById(`sharetag-${n.id}`);
+                if (tagEl) {
+                    tagEl.innerText = `${n.share.toFixed(1)}% Share`; tagEl.style.opacity = isSel ? '1' : '0';
+                    tagEl.style.top = `-${nSize/2 + 6}px`; tagEl.style.borderColor = nRoot.color;
                 }
-                
-                if (node.name) {
-                    ctx.font = '400 11px sans-serif'; ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
-                    ctx.fillText(node.name, 0, (r * zoom) + 14);
-                }
-                ctx.restore();
             }
         });
+    }
 
-        if (activeNode) {
-            ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    function draw() {
+        Object.keys(mapMarkers).forEach(id => {
+            if (!nodes.find(n => n.id === id)) { map.removeLayer(mapMarkers[id]); map.removeLayer(mapCircles[id]); delete mapMarkers[id]; delete mapCircles[id]; }
+        });
+
+        nodes.forEach(node => {
+            const rootComp = getRootComp(node.comp);
             
-            nodes.forEach(neighbor => {
-                if (activeNode.id !== neighbor.id) {
-                    const dist = Math.sqrt(Math.pow(activeNode.x - neighbor.x, 2) + Math.pow(activeNode.y - neighbor.y, 2));
-                    if (dist <= DMAX) {
-                        const midX = (activeNode.x + neighbor.x) / 2; const midY = (activeNode.y + neighbor.y) / 2; const distStr = Math.round(dist).toString();
-                        ctx.save(); ctx.translate(midX, midY); ctx.scale(1/zoom, 1/zoom); 
-                        ctx.font = '10px sans-serif'; const metrics = ctx.measureText(distStr); const bgW = metrics.width + 10; const bgH = 16;
-                        ctx.fillStyle = 'rgba(24, 24, 27, 0.9)'; ctx.beginPath(); ctx.roundRect(-bgW/2, -bgH/2, bgW, bgH, 4); ctx.fill();
-                        ctx.fillStyle = '#94a3b8'; ctx.fillText(distStr, 0, 0); ctx.restore();
-                    }
-                }
-            });
+            if (!mapMarkers[node.id]) {
+                mapCircles[node.id] = L.circle([node.lat, node.lng], {
+                    radius: DMAX * 1000, color: rootComp.color, fillColor: rootComp.color, opacity: 0, fillOpacity: 0, weight: 1, interactive: false
+                }).addTo(map);
 
-            const shareStr = activeNode.share.toFixed(1) + '%'; const r = getRadius(activeNode.vol);
-            const labelX = activeNode.x; const labelY = activeNode.y - r - (20/zoom); 
+                const html = `
+                <div class="marker-anchor" style="position: relative; width: 0; height: 0;">
+                    <div id="core-${node.id}" style="box-sizing: border-box; position: absolute; transform: translate(-50%, -50%); width: 22px; height: 22px; background-color: ${rootComp.color}; border: 2px solid white; box-shadow: 0 0 10px ${rootComp.color}; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-size: 10px; font-weight: bold; transition: all 0.15s ease-out;">
+                        ${node.id.split('X')[1]}
+                    </div>
+                    <div id="sharetag-${node.id}" style="position:absolute; transform: translate(-50%, -100%); top: -17px; background:rgba(24,24,27,0.95); padding:3px 8px; border-radius:6px; font-size:12px; color:#f8fafc; border:1px solid ${rootComp.color}; white-space:nowrap; pointer-events:none; font-weight:bold; box-shadow:0 4px 10px rgba(0,0,0,0.5); opacity: 0; transition: opacity 0.2s, top 0.15s; z-index: 1000;">
+                        ${node.share.toFixed(1)}% Share
+                    </div>
+                </div>`;
+                const icon = L.divIcon({ html: html, className: '', iconSize: [0, 0], iconAnchor: [0, 0] });
+                const marker = L.marker([node.lat, node.lng], { icon: icon, draggable: true }).addTo(map);
+                mapMarkers[node.id] = marker;
 
-            ctx.save(); ctx.translate(labelX, labelY); ctx.scale(1/zoom, 1/zoom); 
-            ctx.font = 'bold 12px sans-serif'; const sMetrics = ctx.measureText(shareStr); const sBgW = sMetrics.width + 16; const sBgH = 22;
+                L.DomEvent.on(marker.getElement(), 'wheel', function(e) {
+                    L.DomEvent.stopPropagation(e); L.DomEvent.preventDefault(e);
+                    const freshNode = nodes.find(n => n.id === node.id);
+                    if (!freshNode) return;
+                    activeNodeId = freshNode.id; 
+                    const delta = e.deltaY < 0 ? 10 : -10;
+                    freshNode.vol = Math.max(0, freshNode.vol + delta);
+                    calculateShares(); updateDataDisplays(); updateNodeVisuals(); drawDistanceLines(); renderCards();
+                });
 
-            ctx.fillStyle = 'rgba(9, 9, 11, 0.85)'; ctx.beginPath(); ctx.roundRect(-sBgW/2, -sBgH/2, sBgW, sBgH, 6); ctx.fill();
-            ctx.strokeStyle = getRootComp(activeNode.comp).color; ctx.lineWidth = 1.5; ctx.stroke();
-            ctx.fillStyle = activeNode.share >= THRESHOLD ? '#f87171' : '#f8fafc'; ctx.fillText(shareStr, 0, 0);
-            ctx.restore();
-        }
-        ctx.restore();
-    }
+                marker.on('click', (e) => { 
+                    L.DomEvent.stopPropagation(e); 
+                    activeNodeId = activeNodeId === node.id ? null : node.id; 
+                    draw(); renderCards(); 
+                });
+                
+                marker.on('dragstart', () => { 
+                    activeNodeId = node.id; 
+                    renderCards(); 
+                    updateNodeVisuals(); 
+                    drawDistanceLines(); 
+                });
+                
+                marker.on('drag', function(e) {
+                    const freshNode = nodes.find(n => n.id === node.id);
+                    if (!freshNode) return;
+                    const pos = e.target.getLatLng(); 
+                    freshNode.lat = pos.lat; freshNode.lng = pos.lng; 
+                    mapCircles[node.id].setLatLng(pos);
+                    calculateShares(); updateDataDisplays(); updateNodeVisuals(); drawDistanceLines();
+                });
 
-    // Performance Loop
-    function renderLoop() {
-        if (needsRedraw) {
-            renderCanvas();
-            needsRedraw = false;
-        }
-        requestAnimationFrame(renderLoop);
-    }
+                marker.on('dragend', function(e) {
+                    const freshNode = nodes.find(n => n.id === node.id);
+                    if (!freshNode) return;
+                    const pos = e.target.getLatLng(); 
+                    freshNode.lat = pos.lat; freshNode.lng = pos.lng;
+                    calculateShares(); draw(); updateDataDisplays();
+                });
 
-    // --- Inputs (Mouse & Touch) ---
-
-    function getMouseWorldPos(e) {
-        // e.clientX is in CSS pixels, and our internal coordinate system 
-        // is normalized to CSS pixels, so no math change is needed for High-DPI!
-        const rect = canvas.getBoundingClientRect();
-        return { x: (e.clientX - rect.left - cameraX) / zoom, y: (e.clientY - rect.top - cameraY) / zoom };
-    }
-
-    // Pinch-to-zoom state
-    let initialPinchDist = null;
-    let initialZoom = 1;
-
-    canvas.addEventListener('touchstart', (e) => {
-        if (mouseOverUI) return;
-        
-        if (e.touches.length === 2) {
-            const dx = e.touches[0].clientX - e.touches[1].clientX;
-            const dy = e.touches[0].clientY - e.touches[1].clientY;
-            initialPinchDist = Math.sqrt(dx * dx + dy * dy);
-            initialZoom = zoom;
-            draggedNode = null;
-            isPanning = false;
-        } else if (e.touches.length === 1) {
-            initialPinchDist = null;
-            const touch = e.touches[0];
-            const worldPos = getMouseWorldPos(touch);
-            const hitNode = nodes.find(n => Math.sqrt(Math.pow(worldPos.x - n.x, 2) + Math.pow(worldPos.y - n.y, 2)) < getRadius(n.vol) + (10/zoom));
-
-            if (hitNode) {
-                selectedNodes.clear(); selectedNodes.add(hitNode);
-                draggedNode = hitNode; lastWorldX = worldPos.x; lastWorldY = worldPos.y;
-                renderCards(); draw();
             } else {
-                selectedNodes.clear(); renderCards();
-                isPanning = true; startPanX = touch.clientX - cameraX; startPanY = touch.clientY - cameraY; draw();
+                mapMarkers[node.id].setLatLng([node.lat, node.lng]);
+                mapCircles[node.id].setLatLng([node.lat, node.lng]);
             }
-        }
-    }, { passive: false });
-
-    canvas.addEventListener('touchmove', (e) => {
-        if (mouseOverUI) return;
-        e.preventDefault(); 
-
-        if (e.touches.length === 2 && initialPinchDist) {
-            const dx = e.touches[0].clientX - e.touches[1].clientX;
-            const dy = e.touches[0].clientY - e.touches[1].clientY;
-            const dist = Math.sqrt(dx * dx + dy * dy);
-            
-            const zoomFactor = dist / initialPinchDist;
-            let newZoom = initialZoom * zoomFactor;
-            newZoom = Math.max(0.1, Math.min(newZoom, 10));
-
-            const midX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
-            const midY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
-            const worldX = (midX - cameraX) / zoom;
-            const worldY = (midY - cameraY) / zoom;
-
-            cameraX = midX - (worldX * newZoom);
-            cameraY = midY - (worldY * newZoom);
-            zoom = newZoom; draw();
-            
-        } else if (e.touches.length === 1) {
-            const touch = e.touches[0];
-            const worldPos = getMouseWorldPos(touch);
-            
-            if (draggedNode) {
-                const dx = worldPos.x - lastWorldX; const dy = worldPos.y - lastWorldY;
-                selectedNodes.forEach(n => { n.x += dx; n.y += dy; });
-                lastWorldX = worldPos.x; lastWorldY = worldPos.y;
-                calculateShares(); draw(); updateDataDisplays();
-            } else if (isPanning) {
-                cameraX = touch.clientX - startPanX; cameraY = touch.clientY - startPanY; draw();
-            }
-        }
-    }, { passive: false });
-
-    canvas.addEventListener('touchend', (e) => {
-        draggedNode = null; isPanning = false; initialPinchDist = null;
-    });
-
-    canvas.addEventListener('wheel', (e) => {
-        if (mouseOverUI) return;
-        e.preventDefault();
-        if (selectedNodes.size > 0) {
-            const delta = e.deltaY < 0 ? 10 : -10;
-            selectedNodes.forEach(n => { n.vol = Math.max(0, n.vol + delta); });
-            calculateShares(); draw(); updateDataDisplays();
-        } else {
-            const rect = canvas.getBoundingClientRect(); const mouseX = e.clientX - rect.left; const mouseY = e.clientY - rect.top;
-            const worldX = (mouseX - cameraX) / zoom; const worldY = (mouseY - cameraY) / zoom;
-            const zoomFactor = e.deltaY < 0 ? 1.1 : 0.9; let newZoom = zoom * zoomFactor; newZoom = Math.max(0.1, Math.min(newZoom, 10));
-            cameraX = mouseX - (worldX * newZoom); cameraY = mouseY - (worldY * newZoom);
-            zoom = newZoom; draw();
-        }
-    }, { passive: false });
-
-    canvas.addEventListener('mousedown', (e) => {
-        if (mouseOverUI) return;
-        const worldPos = getMouseWorldPos(e);
-        const hitNode = nodes.find(n => Math.sqrt(Math.pow(worldPos.x - n.x, 2) + Math.pow(worldPos.y - n.y, 2)) < getRadius(n.vol) + (5/zoom));
-
-        if (hitNode) {
-            if (e.ctrlKey || e.metaKey) {
-                if (selectedNodes.has(hitNode)) { selectedNodes.delete(hitNode); draggedNode = null; } 
-                else { selectedNodes.add(hitNode); draggedNode = hitNode; }
-            } else {
-                if (!selectedNodes.has(hitNode)) { selectedNodes.clear(); selectedNodes.add(hitNode); }
-                draggedNode = hitNode;
-            }
-            if (draggedNode) { lastWorldX = worldPos.x; lastWorldY = worldPos.y; }
-            renderCards(); draw();
-        } else {
-            if (!e.ctrlKey && !e.metaKey) { selectedNodes.clear(); renderCards(); }
-            isPanning = true; startPanX = e.clientX - cameraX; startPanY = e.clientY - cameraY; draw();
-        }
-    });
-
-    canvas.addEventListener('mousemove', (e) => {
-        if (mouseOverUI) return;
-        const worldPos = getMouseWorldPos(e);
+        });
         
-        if (draggedNode) {
-            const dx = worldPos.x - lastWorldX; const dy = worldPos.y - lastWorldY;
-            selectedNodes.forEach(n => { n.x += dx; n.y += dy; });
-            lastWorldX = worldPos.x; lastWorldY = worldPos.y;
-            calculateShares(); draw(); updateDataDisplays();
-        } else if (isPanning) {
-            cameraX = e.clientX - startPanX; cameraY = e.clientY - startPanY; draw();
-        } else {
-            const prevHover = hoveredNode;
-            hoveredNode = nodes.slice().reverse().find(n => Math.sqrt(Math.pow(worldPos.x - n.x, 2) + Math.pow(worldPos.y - n.y, 2)) < getRadius(n.vol) + (5/zoom)) || null;
-            if(hoveredNode) canvas.classList.add('node-hover'); else canvas.classList.remove('node-hover');
-            if (prevHover !== hoveredNode) draw();
-        }
-    });
+        updateNodeVisuals();
+        drawDistanceLines();
+    }
 
-    canvas.addEventListener('mouseup', () => { draggedNode = null; isPanning = false; });
-    canvas.addEventListener('mouseleave', () => { draggedNode = null; isPanning = false; hoveredNode = null; draw(); });
-
-    // Startup
-    resizeCanvas(); 
-    updateToolbarDisplay();
-    initBaseState();
-    
-    // Kick off the rendering engine
-    requestAnimationFrame(renderLoop);
-
+    updateToolbarDisplay(); initBaseState();
 </script>
 </body>
 </html>
