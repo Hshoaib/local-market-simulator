@@ -37,6 +37,10 @@
             border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px; padding: 16px;
             box-shadow: 0 10px 20px rgba(0,0,0,0.4); pointer-events: auto; border-top: 4px solid; flex-shrink: 0; transition: all 0.2s ease;
         }
+        .company-card.drag-over {
+            background: rgba(255, 255, 255, 0.15); /* Highlight when dragging over */
+            box-shadow: 0 0 20px rgba(255, 255, 255, 0.2);
+        }
 
         .card-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 4px; }
         .card-title { font-weight: 700; font-size: 0.95rem; color: #f8fafc; line-height: 1.3; max-width: 140px; }
@@ -60,16 +64,17 @@
 
         .site-row {
             display: flex; align-items: center; gap: 6px; padding: 8px 4px; border-bottom: 1px solid rgba(255,255,255,0.05);
-            font-size: 0.85rem; border-radius: 4px; transition: background 0.2s;
+            font-size: 0.85rem; border-radius: 4px; transition: all 0.2s; cursor: grab;
         }
+        .site-row:active { cursor: grabbing; }
         .site-row:last-child { border-bottom: none; }
         .site-row:hover { background: rgba(255, 255, 255, 0.05); }
 
-        .site-id { width: 35px; color: #94a3b8; font-weight: 600; font-size: 0.75rem; }
+        .site-id { width: 35px; color: #94a3b8; font-weight: 600; font-size: 0.75rem; pointer-events: none; }
         .site-name { flex: 1; display: flex; }
         .site-vol { width: 60px; display: flex; }
-        .site-share { width: 45px; text-align: right; font-weight: bold; color: #f8fafc; transition: color 0.3s; }
-        .site-warning { width: 16px; display: flex; align-items: center; justify-content: center; transition: opacity 0.2s; }
+        .site-share { width: 45px; text-align: right; font-weight: bold; color: #f8fafc; transition: color 0.3s; pointer-events: none;}
+        .site-warning { width: 16px; display: flex; align-items: center; justify-content: center; transition: opacity 0.2s; pointer-events: none;}
 
         .hint-text { font-size: 0.75rem; color: #64748b; font-style: italic; margin-top: 8px; }
 
@@ -205,7 +210,7 @@
                 <h3>M&A and Remedies</h3>
                 <ul>
                     <li><strong>Mergers:</strong> Click the chain icon (<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>) on a company card, then click another company's chain icon to merge them.</li>
-                    <li><strong>Divestitures (Remedies):</strong> Click the Transfer icon (⟲) on any site row to instantly hand ownership of that site to the next competitor.</li>
+                    <li><strong>Divestitures (Remedies):</strong> Click and drag a site row to another company's card, or click the Transfer icon (⟲) on any site row to instantly hand ownership of that site to the next competitor.</li>
                 </ul>
 
                 <h3>Toolbar</h3>
@@ -449,6 +454,7 @@
         calculateShares(); draw(); renderCards();
     }
     
+    // Rotates the node to the next available company
     function transferNode(nodeId) {
         const node = nodes.find(n => n.id === nodeId);
         if (!node) return;
@@ -460,8 +466,22 @@
         let currentIndex = rootComps.findIndex(c => c.id === currentRoot.id);
         let nextRoot = rootComps[(currentIndex + 1) % rootComps.length];
         
-        node.comp = nextRoot.id; 
-        node.id = `${nextRoot.id}X${nextRoot.nextSiteId++}`; 
+        transferNodeToCompany(node.id, nextRoot.id);
+    }
+
+    // Explicitly transfers a node to a specific company (used by drag and drop)
+    function transferNodeToCompany(nodeId, targetCompId) {
+        const node = nodes.find(n => n.id === nodeId);
+        if (!node) return;
+        
+        let targetRoot = getRootComp(targetCompId);
+        if (!targetRoot) return;
+        
+        // Prevent transferring to the same company
+        if (getRootComp(node.comp).id === targetRoot.id) return;
+        
+        node.comp = targetRoot.id; 
+        node.id = `${targetRoot.id}X${targetRoot.nextSiteId++}`; 
         selectedNodes.delete(node); 
         calculateShares(); draw(); renderCards();
     }
@@ -540,6 +560,23 @@
             const card = document.createElement('div');
             card.className = 'company-card';
             card.style.borderTopColor = root.color;
+            
+            // Allow this card to be a drop target for nodes
+            card.addEventListener('dragover', (e) => {
+                e.preventDefault(); // Necessary to allow dropping
+                card.classList.add('drag-over');
+            });
+            card.addEventListener('dragleave', (e) => {
+                card.classList.remove('drag-over');
+            });
+            card.addEventListener('drop', (e) => {
+                e.preventDefault();
+                card.classList.remove('drag-over');
+                const draggedNodeId = e.dataTransfer.getData('text/plain');
+                if (draggedNodeId) {
+                    transferNodeToCompany(draggedNodeId, root.id);
+                }
+            });
 
             const header = document.createElement('div');
             header.className = 'card-header';
@@ -597,6 +634,17 @@
             groupNodes.forEach(n => {
                 const row = document.createElement('div'); row.className = 'site-row';
                 if(selectedNodes.has(n)) row.style.backgroundColor = 'rgba(255, 255, 255, 0.1)';
+                
+                // Make the row draggable for the drag-and-drop divestiture mechanism
+                row.draggable = true;
+                row.addEventListener('dragstart', (e) => {
+                    e.dataTransfer.setData('text/plain', n.id);
+                    e.dataTransfer.effectAllowed = 'move';
+                    row.style.opacity = '0.4'; // Visual cue while dragging
+                });
+                row.addEventListener('dragend', (e) => {
+                    row.style.opacity = '1';
+                });
                 
                 let idPrefix = members.length > 1 ? `<span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:${activeCompanies.find(c=>c.id===n.comp).color};margin-right:4px;"></span>` : '';
 
