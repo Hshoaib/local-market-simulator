@@ -5,6 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Local Market Simulator - Mobile Optimized</title>
     <style>
+        /* Tells the browser to use dark-themed native form controls and scrollbars */
+        :root {
+            color-scheme: dark;
+        }
+
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
             background-color: #09090b; color: #e2e8f0; margin: 0; padding: 0;
@@ -15,6 +20,7 @@
         }
 
         .app-container { position: relative; width: 100%; height: 100%; }
+        /* Make sure CSS forces the canvas to fill the container exactly */
         canvas { display: block; width: 100%; height: 100%; cursor: grab; touch-action: none; }
         canvas:active { cursor: grabbing; }
         canvas.node-hover { cursor: pointer; }
@@ -152,7 +158,6 @@
         @media (max-width: 768px) {
             .company-sidebar {
                 width: 100%; left: 0; top: auto; 
-                /* Allow space for the raised bottom toolbar */
                 bottom: calc(100px + env(safe-area-inset-bottom)); 
                 max-height: 40vh; padding: 10px 15px; box-sizing: border-box;
                 -webkit-mask-image: linear-gradient(to top, transparent 0%, black 15px);
@@ -161,10 +166,9 @@
             .card-title { max-width: 100px; font-size: 0.85rem; }
             
             .bottom-toolbar {
-                /* Float it off the bottom edges entirely on mobile */
                 width: 94%; 
-                bottom: calc(30px + env(safe-area-inset-bottom)); /* Explicitly raised higher */
-                border-radius: 12px; /* Restore pill shape instead of flat bottom */
+                bottom: calc(30px + env(safe-area-inset-bottom)); 
+                border-radius: 12px; 
                 border-left: 1px solid rgba(255, 255, 255, 0.1); 
                 border-right: 1px solid rgba(255, 255, 255, 0.1); 
                 border-bottom: 1px solid rgba(255, 255, 255, 0.1);
@@ -174,9 +178,7 @@
             }
             .bottom-toolbar::-webkit-scrollbar { display: none; }
             
-            .info-btn-container { 
-                top: calc(15px + env(safe-area-inset-top)); right: 15px; 
-            }
+            .info-btn-container { top: calc(15px + env(safe-area-inset-top)); right: 15px; }
             .top-icon-btn { padding: 8px; }
             .top-icon-btn svg { width: 20px; height: 20px; }
         }
@@ -305,9 +307,19 @@
     const companySidebar = document.getElementById('companySidebar');
     const bottomToolbar = document.getElementById('bottomToolbar');
     
+    // Core Layout Metrics
+    let cssWidth = window.innerWidth;
+    let cssHeight = window.innerHeight;
+    let cx = window.innerWidth / 2; 
+    let cy = window.innerHeight / 2;
+
+    // Simulation Config
     let DMAX = 150;
     let THRESHOLD = 35;
     let onboardingActive = true;
+
+    // Render loop dirty flag
+    let needsRedraw = true;
 
     const companyColors = [
         '#3b82f6', '#ef4444', '#22c55e', '#f59e0b', '#a855f7', 
@@ -379,9 +391,12 @@
     companySidebar.addEventListener('mouseenter', () => mouseOverUI = true);
     companySidebar.addEventListener('mouseleave', () => mouseOverUI = false);
 
-    let cx = window.innerWidth / 2; let cy = window.innerHeight / 2;
-
     // --- Core Logic ---
+
+    // Simple wrapper to flag the render loop to update the screen
+    function draw() {
+        needsRedraw = true;
+    }
 
     function getRootComp(compId) {
         let comp = activeCompanies.find(c => c.id === compId);
@@ -434,7 +449,6 @@
         calculateShares(); draw(); renderCards();
     }
     
-    // Transfer logic for mobile
     function transferNode(nodeId) {
         const node = nodes.find(n => n.id === nodeId);
         if (!node) return;
@@ -594,7 +608,6 @@
                     <div class="site-warning" id="warn-${n.id}" style="opacity: ${n.share >= THRESHOLD ? '1' : '0'};" title="Threshold Exceeded">${iconWarning}</div>
                 `;
                 
-                // Touch-friendly Transfer Button (Replaces Drag and Drop)
                 const transferBtn = document.createElement('button');
                 transferBtn.className = 'site-icon-btn'; transferBtn.innerHTML = iconTransfer; transferBtn.title = "Transfer to Competitor";
                 transferBtn.onclick = () => transferNode(n.id);
@@ -641,8 +654,27 @@
     // --- Math & Visual Engine ---
 
     function resizeCanvas() {
-        canvas.width = window.innerWidth; canvas.height = window.innerHeight;
-        cx = window.innerWidth / 2; cy = window.innerHeight / 2; draw();
+        // Track the actual CSS dimensions of the screen
+        cssWidth = window.innerWidth;
+        cssHeight = window.innerHeight;
+        
+        // Find the device pixel ratio (e.g., 2 or 3 on retina/mobile screens)
+        const dpr = window.devicePixelRatio || 1;
+        
+        // Multiply canvas internal resolution by the DPR for crisp rendering
+        canvas.width = cssWidth * dpr;
+        canvas.height = cssHeight * dpr;
+        
+        // Lock the canvas CSS to the screen dimensions so it doesn't inflate the container
+        canvas.style.width = cssWidth + 'px';
+        canvas.style.height = cssHeight + 'px';
+        
+        // Reset and scale the drawing context so 1 unit = 1 CSS pixel
+        ctx.setTransform(1, 0, 0, 1, 0, 0); 
+        ctx.scale(dpr, dpr);
+        
+        cx = cssWidth / 2; cy = cssHeight / 2;
+        draw();
     }
     window.addEventListener('resize', resizeCanvas);
 
@@ -662,8 +694,9 @@
         });
     }
 
-    function draw() {
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
+    // This actually paints the screen (called via requestAnimationFrame)
+    function renderCanvas() {
+        ctx.clearRect(0, 0, cssWidth, cssHeight);
         ctx.save(); ctx.translate(cameraX, cameraY); ctx.scale(zoom, zoom);
 
         const activeNode = hoveredNode || (selectedNodes.size === 1 ? [...selectedNodes][0] : null);
@@ -755,9 +788,20 @@
         ctx.restore();
     }
 
+    // Performance Loop
+    function renderLoop() {
+        if (needsRedraw) {
+            renderCanvas();
+            needsRedraw = false;
+        }
+        requestAnimationFrame(renderLoop);
+    }
+
     // --- Inputs (Mouse & Touch) ---
 
     function getMouseWorldPos(e) {
+        // e.clientX is in CSS pixels, and our internal coordinate system 
+        // is normalized to CSS pixels, so no math change is needed for High-DPI!
         const rect = canvas.getBoundingClientRect();
         return { x: (e.clientX - rect.left - cameraX) / zoom, y: (e.clientY - rect.top - cameraY) / zoom };
     }
@@ -795,7 +839,7 @@
 
     canvas.addEventListener('touchmove', (e) => {
         if (mouseOverUI) return;
-        e.preventDefault(); // Prevent scrolling
+        e.preventDefault(); 
 
         if (e.touches.length === 2 && initialPinchDist) {
             const dx = e.touches[0].clientX - e.touches[1].clientX;
@@ -806,7 +850,6 @@
             let newZoom = initialZoom * zoomFactor;
             newZoom = Math.max(0.1, Math.min(newZoom, 10));
 
-            // Center zoom on the midpoint between the two fingers
             const midX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
             const midY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
             const worldX = (midX - cameraX) / zoom;
@@ -835,7 +878,6 @@
         draggedNode = null; isPanning = false; initialPinchDist = null;
     });
 
-    // Desktop Mouse Events (Retained)
     canvas.addEventListener('wheel', (e) => {
         if (mouseOverUI) return;
         e.preventDefault();
@@ -899,6 +941,9 @@
     resizeCanvas(); 
     updateToolbarDisplay();
     initBaseState();
+    
+    // Kick off the rendering engine
+    requestAnimationFrame(renderLoop);
 
 </script>
 </body>
