@@ -104,11 +104,14 @@
             position: absolute; top: 76px; right: 20px; z-index: 2000;
             background: rgba(24, 24, 27, 0.85); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
             border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 8px;
-            padding: 12px 14px; display: flex; flex-direction: column; gap: 10px;
+            padding: 12px 14px; display: flex; flex-direction: column; gap: 8px;
             box-shadow: 0 10px 20px rgba(0,0,0,0.4);
         }
+        .toggles-title {
+            font-size: 0.75rem; color: #94a3b8; font-weight: 700; margin-bottom: 2px;
+        }
         .toggle-label {
-            display: flex; align-items: center; gap: 8px; font-size: 0.8rem;
+            display: flex; align-items: center; gap: 8px; font-size: 0.85rem;
             font-weight: 600; color: #e2e8f0; cursor: pointer; user-select: none;
         }
         .toggle-label input[type="checkbox"] { cursor: pointer; margin: 0; }
@@ -243,11 +246,12 @@
         </div>
 
         <div class="toggles-container">
+            <div class="toggles-title">Always show:</div>
             <label class="toggle-label">
-                <input type="checkbox" id="toggleNames"> Always Show Names
+                <input type="checkbox" id="toggleNames"> Names
             </label>
             <label class="toggle-label">
-                <input type="checkbox" id="toggleShares"> Always Show Shares
+                <input type="checkbox" id="toggleShares"> Shares
             </label>
         </div>
 
