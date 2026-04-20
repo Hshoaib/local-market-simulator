@@ -43,7 +43,8 @@
         }
 
         .card-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 4px; pointer-events: none; }
-        .card-title { font-weight: 700; font-size: 0.95rem; color: #f8fafc; line-height: 1.3; max-width: 140px; pointer-events: auto;}
+        .card-title { font-weight: 700; font-size: 0.95rem; color: #f8fafc; line-height: 1.3; max-width: 140px; pointer-events: auto; cursor: text;}
+        .card-title:hover { color: #fbbf24; }
         .card-header-actions { display: flex; gap: 4px; align-items: center; flex-wrap: wrap; justify-content: flex-end; pointer-events: auto;}
 
         .action-btn {
@@ -210,6 +211,7 @@
                 <h3>M&A and Remedies</h3>
                 <ul>
                     <li><strong>Mergers:</strong> Click the chain icon on a company card, then click another company's chain icon to simulate a merger between them.</li>
+                    <li><strong>Rename:</strong> Double-click a company's name in the sidebar to rename it. If you rename a merged group, unmerging will restore their original names!</li>
                     <li><strong>Divestitures:</strong> Click and drag a location row from one company card and drop it onto another company to transfer ownership.</li>
                     <li><strong>Delete:</strong> Click the 'X' on a location row to delete it, or the 'X' on a company card to remove the entire company.</li>
                 </ul>
@@ -355,7 +357,7 @@
 
     let activeCompanies = []; let locations = [];
     let pendingMergeCompId = null; 
-    let activeLocationIds = []; // Upgraded to array to support multi-select
+    let activeLocationIds = []; 
     let pendingPostcodeCompId = null;
     let mapCircles = {}; let mapMarkers = {}; let mapLines = [];
 
@@ -375,7 +377,7 @@
         const rootId = activeCompanies[0].id; 
         const comp = activeCompanies.find(c => c.id === rootId);
         const newLocation = { id: `${rootId}X${comp.nextSiteId++}`, comp: rootId, vol: 100, lat: e.latlng.lat, lng: e.latlng.lng, name: '' };
-        locations.push(newLocation); activeLocationIds = [newLocation.id]; // Auto-select new drop
+        locations.push(newLocation); activeLocationIds = [newLocation.id]; 
         calculateShares(); draw(); renderCards();
     });
 
@@ -414,7 +416,7 @@
         }
 
         const newLocation = { id: `${comp.id}X${comp.nextSiteId++}`, comp: comp.id, vol: 100, lat: targetLat, lng: targetLng, name: '' };
-        locations.push(newLocation); activeLocationIds = [newLocation.id]; // Auto-select new drop
+        locations.push(newLocation); activeLocationIds = [newLocation.id]; 
         closeModals(); inputEl.value = ''; calculateShares(); draw(); renderCards();
     };
 
@@ -447,6 +449,8 @@
 
     function unmerge(rootId) {
         activeCompanies.forEach(c => { if (getRootComp(c.id).id === rootId && c.id !== rootId) c.mergedInto = null; });
+        const root = activeCompanies.find(c => c.id === rootId);
+        if (root) root.alias = null; // Clear override name when unmerged
         calculateShares(); draw(); renderCards();
     }
 
@@ -490,7 +494,7 @@
     function initBaseState() {
         clearMapLayers(); 
         pendingMergeCompId = null; activeLocationIds = []; pendingPostcodeCompId = null;
-        activeCompanies = [{ id: 1, name: getUniqueName(), color: companyColors[0], nextSiteId: 2, collapsed: false, mergedInto: null }];
+        activeCompanies = [{ id: 1, name: getUniqueName(), color: companyColors[0], nextSiteId: 2, collapsed: false, mergedInto: null, alias: null }];
         locations = [{ id: '1X1', comp: 1, vol: 100, lat: startLat, lng: startLng, name: '', share: 100 }];
         map.setView([startLat, startLng], 12);
         calculateShares(); draw(); renderCards();
@@ -508,7 +512,7 @@
     document.getElementById('btnCompPlus').onclick = () => { 
         if (activeCompanies.length < 10) { 
             const nextIdx = activeCompanies.length; const newId = (activeCompanies.length > 0 ? Math.max(...activeCompanies.map(c=>c.id)) : 0) + 1;
-            activeCompanies.push({ id: newId, name: getUniqueName(), color: companyColors[nextIdx], nextSiteId: 1, collapsed: false, mergedInto: null });
+            activeCompanies.push({ id: newId, name: getUniqueName(), color: companyColors[nextIdx], nextSiteId: 1, collapsed: false, mergedInto: null, alias: null });
             renderCards(); 
         } 
     };
@@ -528,7 +532,7 @@
             let avail = fakeNames.filter(n => !tempUsedNames.includes(n));
             let name = avail.length > 0 ? avail[Math.floor(Math.random() * avail.length)] : "Corp";
             tempUsedNames.push(name);
-            tempComps.push({ id: i+1, name: name, color: companyColors[i % 10], nextSiteId: 1, collapsed: false, mergedInto: null });
+            tempComps.push({ id: i+1, name: name, color: companyColors[i % 10], nextSiteId: 1, collapsed: false, mergedInto: null, alias: null });
         }
 
         activeCompanies = tempComps; locations = []; pendingMergeCompId = null; activeLocationIds = [];
@@ -564,8 +568,47 @@
             });
 
             const header = document.createElement('div'); header.className = 'card-header';
-            const combinedName = members.map(m => m.name).join(' + ');
-            header.innerHTML = `<div class="card-title" title="${combinedName}">${combinedName}</div>`;
+            
+            // Allow double-clicking the title to rename
+            const combinedName = root.alias || members.map(m => m.name).join(' + ');
+            const titleEl = document.createElement('div');
+            titleEl.className = 'card-title';
+            titleEl.title = "Double-click to rename";
+            titleEl.innerText = combinedName;
+            
+            titleEl.ondblclick = (e) => {
+                e.stopPropagation();
+                const input = document.createElement('input');
+                input.type = 'text';
+                input.className = 'name-input';
+                input.value = root.alias ? root.alias : (members.length > 1 ? combinedName : root.name);
+                input.style.padding = '2px 6px';
+                input.style.fontSize = '0.95rem';
+                input.style.fontWeight = '700';
+                input.style.height = '24px';
+                input.style.width = '140px';
+                
+                const saveName = () => {
+                    const val = input.value.trim();
+                    if (members.length > 1) {
+                        root.alias = val !== '' ? val : null;
+                    } else {
+                        if (val !== '') root.name = val;
+                        root.alias = null;
+                    }
+                    renderCards();
+                };
+                
+                input.onblur = saveName;
+                input.onkeydown = (ev) => { if (ev.key === 'Enter') saveName(); };
+                
+                titleEl.innerHTML = '';
+                titleEl.appendChild(input);
+                input.focus();
+                input.select();
+            };
+            
+            header.appendChild(titleEl);
             
             const actionsDiv = document.createElement('div'); actionsDiv.className = 'card-header-actions';
 
