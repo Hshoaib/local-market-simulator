@@ -161,11 +161,11 @@
         <div class="modal-overlay" id="postcodeModal" onclick="closeModals(event)">
             <div class="modal-content" onclick="event.stopPropagation()">
                 <button class="modal-close" onclick="closeModals(event)"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
-                <h2>Add New Site</h2>
-                <p>Enter a valid UK Postcode to place a site precisely, or leave blank to drop it in the center of the screen.</p>
+                <h2>Add New Location</h2>
+                <p>Enter a valid UK Postcode to place a location precisely, or leave blank to drop it in the center of the screen.</p>
                 <input type="text" id="postcodeInput" placeholder="e.g. EC3A 7AW" class="vol-input" style="width:100%; padding: 12px; font-size: 1.1rem; margin-bottom: 15px; margin-top: 10px;">
                 <button id="btnConfirmPostcode" class="add-site-btn" style="width:100%; height: 44px; font-size: 1rem; display: flex; justify-content: center; align-items: center;">
-                    Place Site <div class="loader" id="postcodeLoader"></div>
+                    Place Location <div class="loader" id="postcodeLoader"></div>
                 </button>
             </div>
         </div>
@@ -178,29 +178,29 @@
                 <h3>Map & Navigation</h3>
                 <ul>
                     <li><strong>Pan & Zoom:</strong> Click and drag the map, scroll, or use pinch-to-zoom.</li>
-                    <li><strong>Select Sites:</strong> Click a marker on the map, or its row in the sidebar, to view its catchment radius and distance lines to competitors.</li>
+                    <li><strong>Select Locations:</strong> Click a marker on the map, or its row in the sidebar, to view its catchment radius and distance lines to competitors.</li>
                     <li><strong>Center Map:</strong> Use the crosshair icon in the bottom toolbar to snap back to the starting view.</li>
                 </ul>
 
-                <h3>Adding & Editing Sites</h3>
+                <h3>Adding & Editing Locations</h3>
                 <ul>
-                    <li><strong>Move Sites:</strong> Click and drag the colored site markers directly on the map.</li>
-                    <li><strong>Add via Postcode:</strong> Click "+ Location" on a company card to place a site via a UK postcode.</li>
-                    <li><strong>Quick Drop:</strong> Double-click anywhere on empty map space to instantly drop a new site.</li>
+                    <li><strong>Move Locations:</strong> Click and drag the colored location markers directly on the map.</li>
+                    <li><strong>Add via Postcode:</strong> Click "+ Location" on a company card to place a location via a UK postcode.</li>
+                    <li><strong>Quick Drop:</strong> Double-click anywhere on empty map space to instantly drop a new location.</li>
                     <li><strong>Adjust Volume (Fast):</strong> Hover your mouse over any map marker and scroll your mouse wheel to easily change its volume in increments of 10.</li>
-                    <li><strong>Manual Edits:</strong> Use the text boxes in the sidebar rows to precisely edit site names and volumes.</li>
+                    <li><strong>Manual Edits:</strong> Use the text boxes in the sidebar rows to precisely edit location names and volumes.</li>
                 </ul>
 
                 <h3>M&A and Remedies</h3>
                 <ul>
                     <li><strong>Mergers:</strong> Click the chain icon on a company card, then click another company's chain icon to simulate a merger between them.</li>
-                    <li><strong>Divestitures:</strong> Click and drag a site row from one company card and drop it onto another company to transfer ownership.</li>
-                    <li><strong>Delete:</strong> Click the 'X' on a site row to delete it, or the 'X' on a company card to remove the entire company.</li>
+                    <li><strong>Divestitures:</strong> Click and drag a location row from one company card and drop it onto another company to transfer ownership.</li>
+                    <li><strong>Delete:</strong> Click the 'X' on a location row to delete it, or the 'X' on a company card to remove the entire company.</li>
                 </ul>
 
                 <h3>Market Parameters (Bottom Toolbar)</h3>
                 <ul>
-                    <li><strong>Threshold:</strong> Adjust the Safe Harbor threshold (%). Sites exceeding this market share will flag a warning and pulse red.</li>
+                    <li><strong>Threshold:</strong> Adjust the Safe Harbor threshold (%). Locations exceeding this market share will flag a warning and pulse red.</li>
                     <li><strong>Radius (Dmax):</strong> Adjust the maximum catchment distance in Kilometers.</li>
                     <li><strong>Shuffle:</strong> Generate a completely random local market scenario!</li>
                 </ul>
@@ -218,7 +218,7 @@
                 <p>Competitors located right next door exert massive pressure, while competitors on the edge of the catchment exert very little. We calculate real-world kilometer distance (d) using the Haversine formula, and weight each store's volume:</p>
                 <div class="math-block">Weight = (Dmax - d) / Dmax</div>
                 <h3>3. Calculating Market Share</h3>
-                <p>To find a specific site's local market share, we take its volume, add the weighted volume of all allied stores in range, and divide it by the total weighted volume of ALL stores in range.</p>
+                <p>To find a specific location's local market share, we take its volume, add the weighted volume of all allied stores in range, and divide it by the total weighted volume of ALL stores in range.</p>
                 <div class="math-block">Share = Σ(Allied Weighted Vol) / Σ(Total Weighted Vol)</div>
             </div>
         </div>
@@ -327,7 +327,7 @@
         if (activeCompanies.length === 0) return;
         const rootId = activeCompanies[0].id; 
         const comp = activeCompanies.find(c => c.id === rootId);
-        const newLocation = { id: `${rootId}X${comp.nextSiteId++}`, comp: rootId, vol: 100, lat: e.latlng.lat, lng: e.latlng.lng, name: 'NEW DROP' };
+        const newLocation = { id: `${rootId}X${comp.nextSiteId++}`, comp: rootId, vol: 100, lat: e.latlng.lat, lng: e.latlng.lng, name: '' };
         locations.push(newLocation); activeLocationId = newLocation.id;
         calculateShares(); draw(); renderCards();
     });
@@ -355,18 +355,18 @@
         if (!pendingPostcodeCompId) return;
         const inputEl = document.getElementById('postcodeInput'); const loader = document.getElementById('postcodeLoader');
         const val = inputEl.value.trim(); const comp = activeCompanies.find(c => c.id === pendingPostcodeCompId);
-        let targetLat, targetLng, siteName;
+        let targetLat, targetLng;
 
         if (val === '') {
-            const center = map.getCenter(); targetLat = center.lat; targetLng = center.lng; siteName = 'CENTER';
+            const center = map.getCenter(); targetLat = center.lat; targetLng = center.lng; 
         } else {
             loader.style.display = 'block'; const coords = await geocodePostcode(val); loader.style.display = 'none';
             if (!coords) { alert("Invalid or missing UK Postcode."); return; }
-            targetLat = coords.lat; targetLng = coords.lng; siteName = coords.formatted;
+            targetLat = coords.lat; targetLng = coords.lng; 
             map.flyTo([targetLat, targetLng], map.getZoom(), { duration: 1.5 });
         }
 
-        const newLocation = { id: `${comp.id}X${comp.nextSiteId++}`, comp: comp.id, vol: 100, lat: targetLat, lng: targetLng, name: siteName };
+        const newLocation = { id: `${comp.id}X${comp.nextSiteId++}`, comp: comp.id, vol: 100, lat: targetLat, lng: targetLng, name: '' };
         locations.push(newLocation); activeLocationId = newLocation.id;
         closeModals(); inputEl.value = ''; calculateShares(); draw(); renderCards();
     };
@@ -437,7 +437,7 @@
         clearMapLayers(); 
         pendingMergeCompId = null; activeLocationId = null; pendingPostcodeCompId = null;
         activeCompanies = [{ id: 1, name: getUniqueName(), color: companyColors[0], nextSiteId: 2, collapsed: false, mergedInto: null }];
-        locations = [{ id: '1X1', comp: 1, vol: 100, lat: startLat, lng: startLng, name: 'EC3A 7AW', share: 100 }];
+        locations = [{ id: '1X1', comp: 1, vol: 100, lat: startLat, lng: startLng, name: '', share: 100 }];
         map.setView([startLat, startLng], 12);
         calculateShares(); draw(); renderCards();
     }
@@ -541,7 +541,7 @@
             groupLocations.sort((a,b) => b.share - a.share); 
             
             if (groupLocations.length === 0) {
-                const empty = document.createElement('div'); empty.className = 'hint-text'; empty.innerText = 'No sites active.'; body.appendChild(empty);
+                const empty = document.createElement('div'); empty.className = 'hint-text'; empty.innerText = 'No locations active.'; body.appendChild(empty);
             }
 
             groupLocations.forEach(n => {
@@ -570,8 +570,14 @@
                 delSiteBtn.onclick = (e) => { e.stopPropagation(); deleteLocation(n.id); }
                 row.appendChild(delSiteBtn);
 
-                const input = row.querySelector('.vol-input');
-                input.addEventListener('input', (e) => {
+                const nameInput = row.querySelector('.name-input');
+                nameInput.addEventListener('input', (e) => {
+                    n.name = e.target.value;
+                    updateLocationVisuals();
+                });
+
+                const volInput = row.querySelector('.vol-input');
+                volInput.addEventListener('input', (e) => {
                     const newVol = parseFloat(e.target.value); n.vol = isNaN(newVol) || newVol < 0 ? 0 : newVol;
                     calculateShares(); draw(); updateDataDisplays(); 
                 });
@@ -587,6 +593,10 @@
             const shareEl = document.getElementById(`share-${n.id}`); const warnEl = document.getElementById(`warn-${n.id}`);
             if (shareEl) shareEl.innerText = `${(n.share || 100).toFixed(1)}%`;
             if (warnEl) warnEl.style.opacity = n.share >= THRESHOLD ? '1' : '0';
+            
+            const nameEl = document.getElementById(`name-${n.id}`);
+            if (nameEl && document.activeElement !== nameEl) nameEl.value = n.name;
+
             const volEl = document.getElementById(`vol-${n.id}`);
             if (volEl && document.activeElement !== volEl) volEl.value = n.vol;
         });
@@ -662,6 +672,16 @@
                     tagEl.innerText = `${n.share.toFixed(1)}% Share`; tagEl.style.opacity = isSel ? '1' : '0';
                     tagEl.style.top = `-${nSize/2 + 6}px`; tagEl.style.borderColor = nRoot.color;
                 }
+
+                const nameEl = document.getElementById(`nametag-${n.id}`);
+                if (nameEl) {
+                    nameEl.innerText = n.name;
+                    nameEl.style.opacity = (isSel && n.name.trim() !== '') ? '1' : '0';
+                    nameEl.style.top = `${nSize/2 + 6}px`;
+                    nameEl.style.borderColor = nRoot.color;
+                    nameEl.style.padding = (n.name.trim() !== '') ? '3px 8px' : '0';
+                    nameEl.style.borderWidth = (n.name.trim() !== '') ? '1px' : '0';
+                }
             }
         });
     }
@@ -687,6 +707,7 @@
                     <div id="sharetag-${location.id}" style="position:absolute; transform: translate(-50%, -100%); top: -17px; background:rgba(24,24,27,0.95); padding:3px 8px; border-radius:6px; font-size:12px; color:#f8fafc; border:1px solid ${rootComp.color}; white-space:nowrap; pointer-events:none; font-weight:bold; box-shadow:0 4px 10px rgba(0,0,0,0.5); opacity: 0; transition: opacity 0.2s, top 0.15s; z-index: 1000;">
                         ${location.share.toFixed(1)}% Share
                     </div>
+                    <div id="nametag-${location.id}" style="position:absolute; transform: translate(-50%, 0); background:rgba(24,24,27,0.95); border-radius:6px; font-size:12px; color:#f8fafc; border-style: solid; border-width: 0; padding: 0; white-space:nowrap; pointer-events:none; font-weight:bold; box-shadow:0 4px 10px rgba(0,0,0,0.5); opacity: 0; transition: opacity 0.2s, top 0.15s; z-index: 1000;"></div>
                 </div>`;
                 const icon = L.divIcon({ html: html, className: '', iconSize: [0, 0], iconAnchor: [0, 0] });
                 const marker = L.marker([location.lat, location.lng], { icon: icon, draggable: true }).addTo(map);
