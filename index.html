@@ -178,7 +178,7 @@
                 <h3>Map & Navigation</h3>
                 <ul>
                     <li><strong>Pan & Zoom:</strong> Click and drag the map, scroll, or use pinch-to-zoom.</li>
-                    <li><strong>Select Locations:</strong> Click a marker on the map, or its row in the sidebar, to view its catchment radius and distance lines to competitors.</li>
+                    <li><strong>Select Locations:</strong> Click a marker on the map, or its row in the sidebar, to view its catchment radius and distance lines to competitors. Hold <strong>Ctrl</strong> (or <strong>Cmd</strong> on Mac) while clicking to select multiple locations at once.</li>
                     <li><strong>Center Map:</strong> Use the crosshair icon in the bottom toolbar to snap back to the starting view.</li>
                 </ul>
 
@@ -309,7 +309,8 @@
     const iconWarning = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#f87171" stroke-width="2"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>`;
 
     let activeCompanies = []; let locations = [];
-    let pendingMergeCompId = null; let activeLocationId = null; 
+    let pendingMergeCompId = null; 
+    let activeLocationIds = []; // Upgraded to array to support multi-select
     let pendingPostcodeCompId = null;
     let mapCircles = {}; let mapMarkers = {}; let mapLines = [];
 
@@ -320,7 +321,8 @@
         mapMarkers = {}; mapCircles = {}; mapLines = [];
     }
 
-    map.on('click', () => { activeLocationId = null; draw(); renderCards(); });
+    // Clicking anywhere empty on the map clears all selections
+    map.on('click', () => { activeLocationIds = []; draw(); renderCards(); });
 
     map.on('dblclick', (e) => {
         removeOnboarding();
@@ -328,7 +330,7 @@
         const rootId = activeCompanies[0].id; 
         const comp = activeCompanies.find(c => c.id === rootId);
         const newLocation = { id: `${rootId}X${comp.nextSiteId++}`, comp: rootId, vol: 100, lat: e.latlng.lat, lng: e.latlng.lng, name: '' };
-        locations.push(newLocation); activeLocationId = newLocation.id;
+        locations.push(newLocation); activeLocationIds = [newLocation.id]; // Auto-select new drop
         calculateShares(); draw(); renderCards();
     });
 
@@ -367,7 +369,7 @@
         }
 
         const newLocation = { id: `${comp.id}X${comp.nextSiteId++}`, comp: comp.id, vol: 100, lat: targetLat, lng: targetLng, name: '' };
-        locations.push(newLocation); activeLocationId = newLocation.id;
+        locations.push(newLocation); activeLocationIds = [newLocation.id]; // Auto-select new drop
         closeModals(); inputEl.value = ''; calculateShares(); draw(); renderCards();
     };
 
@@ -408,13 +410,16 @@
         if (pendingMergeCompId === compId) pendingMergeCompId = null;
         activeCompanies = activeCompanies.filter(c => c.id !== compId);
         locations = locations.filter(n => n.comp !== compId);
-        if(activeLocationId && !locations.find(n => n.id === activeLocationId)) activeLocationId = null;
+        
+        // Remove deleted nodes from active selection
+        activeLocationIds = activeLocationIds.filter(id => locations.find(n => n.id === id));
+        
         calculateShares(); draw(); renderCards();
     }
 
     function deleteLocation(locationId) {
         locations = locations.filter(n => n.id !== locationId);
-        if (activeLocationId === locationId) activeLocationId = null;
+        activeLocationIds = activeLocationIds.filter(id => id !== locationId);
         calculateShares(); draw(); renderCards();
     }
     
@@ -425,7 +430,11 @@
         const nextRoot = activeCompanies.find(c => c.id === targetCompId);
         location.comp = nextRoot.id; 
         const newId = `${nextRoot.id}X${nextRoot.nextSiteId++}`;
-        if (activeLocationId === location.id) activeLocationId = newId;
+        
+        if (activeLocationIds.includes(location.id)) {
+            activeLocationIds = activeLocationIds.filter(id => id !== location.id);
+            activeLocationIds.push(newId);
+        }
         
         if(mapCircles[location.id]) { map.removeLayer(mapCircles[location.id]); delete mapCircles[location.id]; }
         if(mapMarkers[location.id]) { map.removeLayer(mapMarkers[location.id]); delete mapMarkers[location.id]; }
@@ -435,7 +444,7 @@
 
     function initBaseState() {
         clearMapLayers(); 
-        pendingMergeCompId = null; activeLocationId = null; pendingPostcodeCompId = null;
+        pendingMergeCompId = null; activeLocationIds = []; pendingPostcodeCompId = null;
         activeCompanies = [{ id: 1, name: getUniqueName(), color: companyColors[0], nextSiteId: 2, collapsed: false, mergedInto: null }];
         locations = [{ id: '1X1', comp: 1, vol: 100, lat: startLat, lng: startLng, name: '', share: 100 }];
         map.setView([startLat, startLng], 12);
@@ -477,7 +486,7 @@
             tempComps.push({ id: i+1, name: name, color: companyColors[i % 10], nextSiteId: 1, collapsed: false, mergedInto: null });
         }
 
-        activeCompanies = tempComps; locations = []; pendingMergeCompId = null; activeLocationId = null;
+        activeCompanies = tempComps; locations = []; pendingMergeCompId = null; activeLocationIds = [];
         
         const center = map.getCenter();
         activeCompanies.forEach(comp => {
@@ -550,7 +559,11 @@
                 row.ondragstart = (e) => { e.dataTransfer.setData('text/plain', n.id); row.style.opacity = '0.4'; };
                 row.ondragend = () => { row.style.opacity = '1'; };
 
-                if (activeLocationId === n.id) { row.style.backgroundColor = 'rgba(255, 255, 255, 0.15)'; row.style.borderLeft = `3px solid ${activeCompanies.find(c=>c.id===n.comp).color}`; }
+                if (activeLocationIds.includes(n.id)) { 
+                    row.style.backgroundColor = 'rgba(255, 255, 255, 0.15)'; 
+                    row.style.borderLeft = `3px solid ${activeCompanies.find(c=>c.id===n.comp).color}`; 
+                }
+                
                 let idPrefix = members.length > 1 ? `<span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:${activeCompanies.find(c=>c.id===n.comp).color};margin-right:4px;"></span>` : '';
 
                 row.innerHTML = `
@@ -563,7 +576,21 @@
                 
                 row.onclick = (e) => {
                     if(e.target.tagName === 'INPUT' || e.target.closest('button')) return;
-                    activeLocationId = activeLocationId === n.id ? null : n.id; draw(); renderCards();
+                    
+                    if (e.ctrlKey || e.metaKey) {
+                        if (activeLocationIds.includes(n.id)) {
+                            activeLocationIds = activeLocationIds.filter(id => id !== n.id);
+                        } else {
+                            activeLocationIds.push(n.id);
+                        }
+                    } else {
+                        if (activeLocationIds.length === 1 && activeLocationIds[0] === n.id) {
+                            activeLocationIds = []; // toggle off if it's the only one
+                        } else {
+                            activeLocationIds = [n.id]; // isolate selection
+                        }
+                    }
+                    draw(); renderCards();
                 };
 
                 const delSiteBtn = document.createElement('button'); delSiteBtn.className = 'site-icon-btn del'; delSiteBtn.innerHTML = iconDelete;
@@ -618,11 +645,12 @@
 
     function drawDistanceLines() {
         mapLines.forEach(line => map.removeLayer(line)); mapLines = [];
-        if (activeLocationId) {
-            const activeLocation = locations.find(n => n.id === activeLocationId);
+        
+        activeLocationIds.forEach(activeId => {
+            const activeLocation = locations.find(n => n.id === activeId);
             if (activeLocation) {
                 locations.forEach(neighbor => {
-                    if (neighbor.id !== activeLocationId) {
+                    if (neighbor.id !== activeId) {
                         const distKm = getDistanceFromLatLonInKm(activeLocation.lat, activeLocation.lng, neighbor.lat, neighbor.lng);
                         if (distKm <= DMAX) {
                             const compColor = getRootComp(neighbor.comp).color;
@@ -649,12 +677,12 @@
                     }
                 });
             }
-        }
+        });
     }
 
     function updateLocationVisuals() {
         locations.forEach(n => {
-            const nRoot = getRootComp(n.comp); const isWarn = n.share >= THRESHOLD; const isSel = activeLocationId === n.id; 
+            const nRoot = getRootComp(n.comp); const isWarn = n.share >= THRESHOLD; const isSel = activeLocationIds.includes(n.id); 
             const cColor = isWarn ? '#ef4444' : nRoot.color;
             if (mapCircles[n.id]) { mapCircles[n.id].setRadius(DMAX * 1000); mapCircles[n.id].setStyle({ color: cColor, fillColor: cColor, opacity: isSel ? 1 : 0, fillOpacity: isSel ? (isWarn ? 0.2 : 0.08) : 0, weight: isWarn ? 2 : 1 }); }
             
@@ -717,7 +745,8 @@
                     L.DomEvent.stopPropagation(e); L.DomEvent.preventDefault(e);
                     const freshLocation = locations.find(n => n.id === location.id);
                     if (!freshLocation) return;
-                    activeLocationId = freshLocation.id; 
+                    
+                    // We purposefully do NOT change activeLocationIds here to preserve multi-select
                     const delta = e.deltaY < 0 ? 10 : -10;
                     freshLocation.vol = Math.max(0, freshLocation.vol + delta);
                     calculateShares(); updateDataDisplays(); updateLocationVisuals(); drawDistanceLines(); renderCards();
@@ -725,12 +754,28 @@
 
                 marker.on('click', (e) => { 
                     L.DomEvent.stopPropagation(e); 
-                    activeLocationId = activeLocationId === location.id ? null : location.id; 
+                    
+                    if (e.originalEvent.ctrlKey || e.originalEvent.metaKey) {
+                        if (activeLocationIds.includes(location.id)) {
+                            activeLocationIds = activeLocationIds.filter(id => id !== location.id);
+                        } else {
+                            activeLocationIds.push(location.id);
+                        }
+                    } else {
+                        if (activeLocationIds.length === 1 && activeLocationIds[0] === location.id) {
+                            activeLocationIds = []; // toggle off if it's the only one
+                        } else {
+                            activeLocationIds = [location.id]; // isolate selection
+                        }
+                    }
+                    
                     draw(); renderCards(); 
                 });
                 
                 marker.on('dragstart', () => { 
-                    activeLocationId = location.id; 
+                    if (!activeLocationIds.includes(location.id)) {
+                        activeLocationIds = [location.id];
+                    }
                     renderCards(); 
                     updateLocationVisuals(); 
                     drawDistanceLines(); 
