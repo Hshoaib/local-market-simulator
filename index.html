@@ -685,14 +685,12 @@
                 delSiteBtn.onclick = (e) => { e.stopPropagation(); deleteLocation(n.id); }
                 row.appendChild(delSiteBtn);
 
-                // Strictly target the name input within this row
-                const nameInput = document.getElementById(`name-${n.id}`);
-                if (nameInput) {
-                    nameInput.addEventListener('input', (e) => {
-                        n.name = e.target.value;
-                        updateLocationVisuals();
-                    });
-                }
+                // Correctly select the input within the created row element
+                const nameInput = row.querySelector('.name-input');
+                nameInput.addEventListener('input', (e) => {
+                    n.name = e.target.value;
+                    updateLocationVisuals();
+                });
 
                 const volInput = row.querySelector('.vol-input');
                 volInput.addEventListener('input', (e) => {
@@ -794,24 +792,23 @@
                     tagEl.style.borderColor = nRoot.color;
                 }
 
-                // Defensive check to gracefully handle rendering name tags
-                const nameEl = document.getElementById(`nametag-${n.id}`);
-                if (nameEl) {
+                const nameTagEl = document.getElementById(`nametag-${n.id}`);
+                if (nameTagEl) {
                     const safeName = (n.name || '').trim();
-                    nameEl.innerText = safeName;
+                    nameTagEl.innerText = safeName;
                     
                     if ((isSel || alwaysShowNames) && safeName !== '') {
-                        nameEl.style.opacity = '1';
-                        nameEl.style.padding = '3px 8px';
-                        nameEl.style.borderWidth = '1px';
+                        nameTagEl.style.opacity = '1';
+                        nameTagEl.style.padding = '3px 8px';
+                        nameTagEl.style.borderWidth = '1px';
                     } else {
-                        nameEl.style.opacity = '0';
-                        nameEl.style.padding = '0';
-                        nameEl.style.borderWidth = '0';
+                        nameTagEl.style.opacity = '0';
+                        nameTagEl.style.padding = '0';
+                        nameTagEl.style.borderWidth = '0';
                     }
                     
-                    nameEl.style.top = `${nSize/2 + 6}px`;
-                    nameEl.style.borderColor = nRoot.color;
+                    nameTagEl.style.top = `${nSize/2 + 6}px`;
+                    nameTagEl.style.borderColor = nRoot.color;
                 }
             }
         });
