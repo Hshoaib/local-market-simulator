@@ -185,7 +185,7 @@
                 <h3>Adding & Editing Sites</h3>
                 <ul>
                     <li><strong>Move Sites:</strong> Click and drag the colored site markers directly on the map.</li>
-                    <li><strong>Add via Postcode:</strong> Click "+ Node" on a company card to place a site via a UK postcode.</li>
+                    <li><strong>Add via Postcode:</strong> Click "+ Location" on a company card to place a site via a UK postcode.</li>
                     <li><strong>Quick Drop:</strong> Double-click anywhere on empty map space to instantly drop a new site.</li>
                     <li><strong>Adjust Volume (Fast):</strong> Hover your mouse over any map marker and scroll your mouse wheel to easily change its volume in increments of 10.</li>
                     <li><strong>Manual Edits:</strong> Use the text boxes in the sidebar rows to precisely edit site names and volumes.</li>
@@ -301,15 +301,15 @@
     
     let DMAX = 10; let THRESHOLD = 35;
     const companyColors = ['#3b82f6', '#ef4444', '#22c55e', '#f59e0b', '#a855f7', '#06b6d4', '#f43f5e', '#6366f1', '#f97316', '#14b8a6'];
-    const fakeNames = ['Aperture Sci.', 'Giggle', 'SprawlMart', 'Buy n Large', 'Initech', 'Soylent Corp', 'Globex', 'Umbrella Corp', 'Acme Corp.', 'Wayne Ent.'];
+    const fakeNames = ['Aperture Sci.', 'Stark Ind.', 'SprawlMart', 'Buy n Large', 'Initech', 'Soylent Corp', 'Globex', 'Umbrella Corp', 'Acme Corp.', 'Wayne Ent.'];
 
     const iconChain = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>`;
     const iconBrokenChain = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 17H7A5 5 0 0 1 7 7h2"></path><path d="M15 7h2a5 5 0 1 1 0 10h-2"></path><line x1="8" y1="12" x2="16" y2="12"></line><line x1="2" y1="2" x2="22" y2="22"></line></svg>`;
     const iconDelete = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>`;
     const iconWarning = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#f87171" stroke-width="2"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>`;
 
-    let activeCompanies = []; let nodes = [];
-    let pendingMergeCompId = null; let activeNodeId = null; 
+    let activeCompanies = []; let locations = [];
+    let pendingMergeCompId = null; let activeLocationId = null; 
     let pendingPostcodeCompId = null;
     let mapCircles = {}; let mapMarkers = {}; let mapLines = [];
 
@@ -320,15 +320,15 @@
         mapMarkers = {}; mapCircles = {}; mapLines = [];
     }
 
-    map.on('click', () => { activeNodeId = null; draw(); renderCards(); });
+    map.on('click', () => { activeLocationId = null; draw(); renderCards(); });
 
     map.on('dblclick', (e) => {
         removeOnboarding();
         if (activeCompanies.length === 0) return;
         const rootId = activeCompanies[0].id; 
         const comp = activeCompanies.find(c => c.id === rootId);
-        const newNode = { id: `${rootId}X${comp.nextSiteId++}`, comp: rootId, vol: 100, lat: e.latlng.lat, lng: e.latlng.lng, name: 'NEW DROP' };
-        nodes.push(newNode); activeNodeId = newNode.id;
+        const newLocation = { id: `${rootId}X${comp.nextSiteId++}`, comp: rootId, vol: 100, lat: e.latlng.lat, lng: e.latlng.lng, name: 'NEW DROP' };
+        locations.push(newLocation); activeLocationId = newLocation.id;
         calculateShares(); draw(); renderCards();
     });
 
@@ -366,8 +366,8 @@
             map.flyTo([targetLat, targetLng], map.getZoom(), { duration: 1.5 });
         }
 
-        const newNode = { id: `${comp.id}X${comp.nextSiteId++}`, comp: comp.id, vol: 100, lat: targetLat, lng: targetLng, name: siteName };
-        nodes.push(newNode); activeNodeId = newNode.id;
+        const newLocation = { id: `${comp.id}X${comp.nextSiteId++}`, comp: comp.id, vol: 100, lat: targetLat, lng: targetLng, name: siteName };
+        locations.push(newLocation); activeLocationId = newLocation.id;
         closeModals(); inputEl.value = ''; calculateShares(); draw(); renderCards();
     };
 
@@ -407,37 +407,37 @@
         activeCompanies.forEach(c => { if (c.mergedInto === compId) c.mergedInto = null; });
         if (pendingMergeCompId === compId) pendingMergeCompId = null;
         activeCompanies = activeCompanies.filter(c => c.id !== compId);
-        nodes = nodes.filter(n => n.comp !== compId);
-        if(activeNodeId && !nodes.find(n => n.id === activeNodeId)) activeNodeId = null;
+        locations = locations.filter(n => n.comp !== compId);
+        if(activeLocationId && !locations.find(n => n.id === activeLocationId)) activeLocationId = null;
         calculateShares(); draw(); renderCards();
     }
 
-    function deleteNode(nodeId) {
-        nodes = nodes.filter(n => n.id !== nodeId);
-        if (activeNodeId === nodeId) activeNodeId = null;
+    function deleteLocation(locationId) {
+        locations = locations.filter(n => n.id !== locationId);
+        if (activeLocationId === locationId) activeLocationId = null;
         calculateShares(); draw(); renderCards();
     }
     
-    function moveNodeToCompany(nodeId, targetCompId) {
-        const node = nodes.find(n => n.id === nodeId);
-        if (!node || getRootComp(node.comp).id === targetCompId) return;
+    function moveLocationToCompany(locationId, targetCompId) {
+        const location = locations.find(n => n.id === locationId);
+        if (!location || getRootComp(location.comp).id === targetCompId) return;
 
         const nextRoot = activeCompanies.find(c => c.id === targetCompId);
-        node.comp = nextRoot.id; 
+        location.comp = nextRoot.id; 
         const newId = `${nextRoot.id}X${nextRoot.nextSiteId++}`;
-        if (activeNodeId === node.id) activeNodeId = newId;
+        if (activeLocationId === location.id) activeLocationId = newId;
         
-        if(mapCircles[node.id]) { map.removeLayer(mapCircles[node.id]); delete mapCircles[node.id]; }
-        if(mapMarkers[node.id]) { map.removeLayer(mapMarkers[node.id]); delete mapMarkers[node.id]; }
+        if(mapCircles[location.id]) { map.removeLayer(mapCircles[location.id]); delete mapCircles[location.id]; }
+        if(mapMarkers[location.id]) { map.removeLayer(mapMarkers[location.id]); delete mapMarkers[location.id]; }
         
-        node.id = newId; calculateShares(); draw(); renderCards();
+        location.id = newId; calculateShares(); draw(); renderCards();
     }
 
     function initBaseState() {
         clearMapLayers(); 
-        pendingMergeCompId = null; activeNodeId = null; pendingPostcodeCompId = null;
+        pendingMergeCompId = null; activeLocationId = null; pendingPostcodeCompId = null;
         activeCompanies = [{ id: 1, name: getUniqueName(), color: companyColors[0], nextSiteId: 2, collapsed: false, mergedInto: null }];
-        nodes = [{ id: '1X1', comp: 1, vol: 100, lat: startLat, lng: startLng, name: 'EC3A 7AW', share: 100 }];
+        locations = [{ id: '1X1', comp: 1, vol: 100, lat: startLat, lng: startLng, name: 'EC3A 7AW', share: 100 }];
         map.setView([startLat, startLng], 12);
         calculateShares(); draw(); renderCards();
     }
@@ -477,16 +477,16 @@
             tempComps.push({ id: i+1, name: name, color: companyColors[i % 10], nextSiteId: 1, collapsed: false, mergedInto: null });
         }
 
-        activeCompanies = tempComps; nodes = []; pendingMergeCompId = null; activeNodeId = null;
+        activeCompanies = tempComps; locations = []; pendingMergeCompId = null; activeLocationId = null;
         
         const center = map.getCenter();
         activeCompanies.forEach(comp => {
-            const numNodesForComp = Math.floor(Math.random() * 3) + 1;
-            for (let i = 0; i < numNodesForComp; i++) {
+            const numLocationsForComp = Math.floor(Math.random() * 3) + 1;
+            for (let i = 0; i < numLocationsForComp; i++) {
                 const vol = Math.floor(Math.random() * 26 + 5) * 10; 
                 const spawnLat = center.lat + ((Math.random() - 0.5) * 0.15);
                 const spawnLng = center.lng + ((Math.random() - 0.5) * 0.25);
-                nodes.push({ id: `${comp.id}X${comp.nextSiteId++}`, comp: comp.id, vol: vol, lat: spawnLat, lng: spawnLng, name: '', share: 0 });
+                locations.push({ id: `${comp.id}X${comp.nextSiteId++}`, comp: comp.id, vol: vol, lat: spawnLat, lng: spawnLng, name: '', share: 0 });
             }
         });
 
@@ -505,8 +505,8 @@
             card.addEventListener('dragleave', (e) => { card.style.boxShadow = ''; card.style.borderColor = ''; card.style.borderTopColor = root.color; });
             card.addEventListener('drop', (e) => {
                 e.preventDefault(); card.style.boxShadow = ''; card.style.borderColor = ''; card.style.borderTopColor = root.color;
-                const draggedNodeId = e.dataTransfer.getData('text/plain');
-                if (draggedNodeId) moveNodeToCompany(draggedNodeId, root.id);
+                const draggedLocationId = e.dataTransfer.getData('text/plain');
+                if (draggedLocationId) moveLocationToCompany(draggedLocationId, root.id);
             });
 
             const header = document.createElement('div'); header.className = 'card-header';
@@ -520,7 +520,7 @@
             else { mergeBtn.innerHTML = iconChain; mergeBtn.title = "Merge"; if (pendingMergeCompId === root.id) mergeBtn.classList.add('active-merge'); mergeBtn.onclick = () => toggleMerge(root.id); }
             actionsDiv.appendChild(mergeBtn);
 
-            const addBtn = document.createElement('button'); addBtn.className = 'add-site-btn'; addBtn.innerText = '+ Node';
+            const addBtn = document.createElement('button'); addBtn.className = 'add-site-btn'; addBtn.innerText = '+ Location';
             addBtn.onclick = () => { pendingPostcodeCompId = root.id; document.getElementById('postcodeModal').classList.add('show'); document.getElementById('postcodeInput').focus(); };
             actionsDiv.appendChild(addBtn);
 
@@ -537,20 +537,20 @@
             const body = document.createElement('div'); body.className = 'card-body';
             if (root.collapsed) body.style.display = 'none';
 
-            let groupNodes = []; members.forEach(m => { groupNodes = groupNodes.concat(nodes.filter(n => n.comp === m.id)); });
-            groupNodes.sort((a,b) => b.share - a.share); 
+            let groupLocations = []; members.forEach(m => { groupLocations = groupLocations.concat(locations.filter(n => n.comp === m.id)); });
+            groupLocations.sort((a,b) => b.share - a.share); 
             
-            if (groupNodes.length === 0) {
+            if (groupLocations.length === 0) {
                 const empty = document.createElement('div'); empty.className = 'hint-text'; empty.innerText = 'No sites active.'; body.appendChild(empty);
             }
 
-            groupNodes.forEach(n => {
+            groupLocations.forEach(n => {
                 const row = document.createElement('div'); row.className = 'site-row';
                 row.draggable = true;
                 row.ondragstart = (e) => { e.dataTransfer.setData('text/plain', n.id); row.style.opacity = '0.4'; };
                 row.ondragend = () => { row.style.opacity = '1'; };
 
-                if (activeNodeId === n.id) { row.style.backgroundColor = 'rgba(255, 255, 255, 0.15)'; row.style.borderLeft = `3px solid ${activeCompanies.find(c=>c.id===n.comp).color}`; }
+                if (activeLocationId === n.id) { row.style.backgroundColor = 'rgba(255, 255, 255, 0.15)'; row.style.borderLeft = `3px solid ${activeCompanies.find(c=>c.id===n.comp).color}`; }
                 let idPrefix = members.length > 1 ? `<span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:${activeCompanies.find(c=>c.id===n.comp).color};margin-right:4px;"></span>` : '';
 
                 row.innerHTML = `
@@ -563,11 +563,11 @@
                 
                 row.onclick = (e) => {
                     if(e.target.tagName === 'INPUT' || e.target.closest('button')) return;
-                    activeNodeId = activeNodeId === n.id ? null : n.id; draw(); renderCards();
+                    activeLocationId = activeLocationId === n.id ? null : n.id; draw(); renderCards();
                 };
 
                 const delSiteBtn = document.createElement('button'); delSiteBtn.className = 'site-icon-btn del'; delSiteBtn.innerHTML = iconDelete;
-                delSiteBtn.onclick = (e) => { e.stopPropagation(); deleteNode(n.id); }
+                delSiteBtn.onclick = (e) => { e.stopPropagation(); deleteLocation(n.id); }
                 row.appendChild(delSiteBtn);
 
                 const input = row.querySelector('.vol-input');
@@ -583,7 +583,7 @@
     }
 
     function updateDataDisplays() {
-        nodes.forEach(n => {
+        locations.forEach(n => {
             const shareEl = document.getElementById(`share-${n.id}`); const warnEl = document.getElementById(`warn-${n.id}`);
             if (shareEl) shareEl.innerText = `${(n.share || 100).toFixed(1)}%`;
             if (warnEl) warnEl.style.opacity = n.share >= THRESHOLD ? '1' : '0';
@@ -593,9 +593,9 @@
     }
 
     function calculateShares() {
-        nodes.forEach(target => {
+        locations.forEach(target => {
             let num = 0; let den = 0; let targetRoot = getRootComp(target.comp);
-            nodes.forEach(neighbor => {
+            locations.forEach(neighbor => {
                 const distKm = getDistanceFromLatLonInKm(target.lat, target.lng, neighbor.lat, neighbor.lng);
                 if (distKm <= DMAX) {
                     const weight = (DMAX - distKm) / DMAX; const weightedVol = weight * neighbor.vol; 
@@ -608,23 +608,23 @@
 
     function drawDistanceLines() {
         mapLines.forEach(line => map.removeLayer(line)); mapLines = [];
-        if (activeNodeId) {
-            const activeNode = nodes.find(n => n.id === activeNodeId);
-            if (activeNode) {
-                nodes.forEach(neighbor => {
-                    if (neighbor.id !== activeNodeId) {
-                        const distKm = getDistanceFromLatLonInKm(activeNode.lat, activeNode.lng, neighbor.lat, neighbor.lng);
+        if (activeLocationId) {
+            const activeLocation = locations.find(n => n.id === activeLocationId);
+            if (activeLocation) {
+                locations.forEach(neighbor => {
+                    if (neighbor.id !== activeLocationId) {
+                        const distKm = getDistanceFromLatLonInKm(activeLocation.lat, activeLocation.lng, neighbor.lat, neighbor.lng);
                         if (distKm <= DMAX) {
                             const compColor = getRootComp(neighbor.comp).color;
                             
                             const line = L.polyline(
-                                [[activeNode.lat, activeNode.lng], [neighbor.lat, neighbor.lng]], 
+                                [[activeLocation.lat, activeLocation.lng], [neighbor.lat, neighbor.lng]], 
                                 { color: compColor, weight: 2.5, opacity: 0.6, dashArray: '4, 8', interactive: false }
                             ).addTo(map);
                             mapLines.push(line);
 
-                            const midLat = (activeNode.lat + neighbor.lat) / 2;
-                            const midLng = (activeNode.lng + neighbor.lng) / 2;
+                            const midLat = (activeLocation.lat + neighbor.lat) / 2;
+                            const midLng = (activeLocation.lng + neighbor.lng) / 2;
                             
                             const labelHtml = `
                                 <div style="transform: translate(-50%, -50%); color: ${compColor}; font-size: 0.8rem; font-weight: 800; white-space: nowrap; pointer-events: none; text-shadow: 0px 0px 4px #000, 0px 0px 4px #000, 1px 1px 2px #000;">
@@ -642,9 +642,9 @@
         }
     }
 
-    function updateNodeVisuals() {
-        nodes.forEach(n => {
-            const nRoot = getRootComp(n.comp); const isWarn = n.share >= THRESHOLD; const isSel = activeNodeId === n.id; 
+    function updateLocationVisuals() {
+        locations.forEach(n => {
+            const nRoot = getRootComp(n.comp); const isWarn = n.share >= THRESHOLD; const isSel = activeLocationId === n.id; 
             const cColor = isWarn ? '#ef4444' : nRoot.color;
             if (mapCircles[n.id]) { mapCircles[n.id].setRadius(DMAX * 1000); mapCircles[n.id].setStyle({ color: cColor, fillColor: cColor, opacity: isSel ? 1 : 0, fillOpacity: isSel ? (isWarn ? 0.2 : 0.08) : 0, weight: isWarn ? 2 : 1 }); }
             
@@ -668,77 +668,77 @@
 
     function draw() {
         Object.keys(mapMarkers).forEach(id => {
-            if (!nodes.find(n => n.id === id)) { map.removeLayer(mapMarkers[id]); map.removeLayer(mapCircles[id]); delete mapMarkers[id]; delete mapCircles[id]; }
+            if (!locations.find(n => n.id === id)) { map.removeLayer(mapMarkers[id]); map.removeLayer(mapCircles[id]); delete mapMarkers[id]; delete mapCircles[id]; }
         });
 
-        nodes.forEach(node => {
-            const rootComp = getRootComp(node.comp);
+        locations.forEach(location => {
+            const rootComp = getRootComp(location.comp);
             
-            if (!mapMarkers[node.id]) {
-                mapCircles[node.id] = L.circle([node.lat, node.lng], {
+            if (!mapMarkers[location.id]) {
+                mapCircles[location.id] = L.circle([location.lat, location.lng], {
                     radius: DMAX * 1000, color: rootComp.color, fillColor: rootComp.color, opacity: 0, fillOpacity: 0, weight: 1, interactive: false
                 }).addTo(map);
 
                 const html = `
                 <div class="marker-anchor" style="position: relative; width: 0; height: 0;">
-                    <div id="core-${node.id}" style="box-sizing: border-box; position: absolute; transform: translate(-50%, -50%); width: 22px; height: 22px; background-color: ${rootComp.color}; border: 2px solid white; box-shadow: 0 0 10px ${rootComp.color}; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-size: 10px; font-weight: bold; transition: all 0.15s ease-out;">
-                        ${node.id.split('X')[1]}
+                    <div id="core-${location.id}" style="box-sizing: border-box; position: absolute; transform: translate(-50%, -50%); width: 22px; height: 22px; background-color: ${rootComp.color}; border: 2px solid white; box-shadow: 0 0 10px ${rootComp.color}; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-size: 10px; font-weight: bold; transition: all 0.15s ease-out;">
+                        ${location.id.split('X')[1]}
                     </div>
-                    <div id="sharetag-${node.id}" style="position:absolute; transform: translate(-50%, -100%); top: -17px; background:rgba(24,24,27,0.95); padding:3px 8px; border-radius:6px; font-size:12px; color:#f8fafc; border:1px solid ${rootComp.color}; white-space:nowrap; pointer-events:none; font-weight:bold; box-shadow:0 4px 10px rgba(0,0,0,0.5); opacity: 0; transition: opacity 0.2s, top 0.15s; z-index: 1000;">
-                        ${node.share.toFixed(1)}% Share
+                    <div id="sharetag-${location.id}" style="position:absolute; transform: translate(-50%, -100%); top: -17px; background:rgba(24,24,27,0.95); padding:3px 8px; border-radius:6px; font-size:12px; color:#f8fafc; border:1px solid ${rootComp.color}; white-space:nowrap; pointer-events:none; font-weight:bold; box-shadow:0 4px 10px rgba(0,0,0,0.5); opacity: 0; transition: opacity 0.2s, top 0.15s; z-index: 1000;">
+                        ${location.share.toFixed(1)}% Share
                     </div>
                 </div>`;
                 const icon = L.divIcon({ html: html, className: '', iconSize: [0, 0], iconAnchor: [0, 0] });
-                const marker = L.marker([node.lat, node.lng], { icon: icon, draggable: true }).addTo(map);
-                mapMarkers[node.id] = marker;
+                const marker = L.marker([location.lat, location.lng], { icon: icon, draggable: true }).addTo(map);
+                mapMarkers[location.id] = marker;
 
                 L.DomEvent.on(marker.getElement(), 'wheel', function(e) {
                     L.DomEvent.stopPropagation(e); L.DomEvent.preventDefault(e);
-                    const freshNode = nodes.find(n => n.id === node.id);
-                    if (!freshNode) return;
-                    activeNodeId = freshNode.id; 
+                    const freshLocation = locations.find(n => n.id === location.id);
+                    if (!freshLocation) return;
+                    activeLocationId = freshLocation.id; 
                     const delta = e.deltaY < 0 ? 10 : -10;
-                    freshNode.vol = Math.max(0, freshNode.vol + delta);
-                    calculateShares(); updateDataDisplays(); updateNodeVisuals(); drawDistanceLines(); renderCards();
+                    freshLocation.vol = Math.max(0, freshLocation.vol + delta);
+                    calculateShares(); updateDataDisplays(); updateLocationVisuals(); drawDistanceLines(); renderCards();
                 });
 
                 marker.on('click', (e) => { 
                     L.DomEvent.stopPropagation(e); 
-                    activeNodeId = activeNodeId === node.id ? null : node.id; 
+                    activeLocationId = activeLocationId === location.id ? null : location.id; 
                     draw(); renderCards(); 
                 });
                 
                 marker.on('dragstart', () => { 
-                    activeNodeId = node.id; 
+                    activeLocationId = location.id; 
                     renderCards(); 
-                    updateNodeVisuals(); 
+                    updateLocationVisuals(); 
                     drawDistanceLines(); 
                 });
                 
                 marker.on('drag', function(e) {
-                    const freshNode = nodes.find(n => n.id === node.id);
-                    if (!freshNode) return;
+                    const freshLocation = locations.find(n => n.id === location.id);
+                    if (!freshLocation) return;
                     const pos = e.target.getLatLng(); 
-                    freshNode.lat = pos.lat; freshNode.lng = pos.lng; 
-                    mapCircles[node.id].setLatLng(pos);
-                    calculateShares(); updateDataDisplays(); updateNodeVisuals(); drawDistanceLines();
+                    freshLocation.lat = pos.lat; freshLocation.lng = pos.lng; 
+                    mapCircles[location.id].setLatLng(pos);
+                    calculateShares(); updateDataDisplays(); updateLocationVisuals(); drawDistanceLines();
                 });
 
                 marker.on('dragend', function(e) {
-                    const freshNode = nodes.find(n => n.id === node.id);
-                    if (!freshNode) return;
+                    const freshLocation = locations.find(n => n.id === location.id);
+                    if (!freshLocation) return;
                     const pos = e.target.getLatLng(); 
-                    freshNode.lat = pos.lat; freshNode.lng = pos.lng;
+                    freshLocation.lat = pos.lat; freshLocation.lng = pos.lng;
                     calculateShares(); draw(); updateDataDisplays();
                 });
 
             } else {
-                mapMarkers[node.id].setLatLng([node.lat, node.lng]);
-                mapCircles[node.id].setLatLng([node.lat, node.lng]);
+                mapMarkers[location.id].setLatLng([location.lat, location.lng]);
+                mapCircles[location.id].setLatLng([location.lat, location.lng]);
             }
         });
         
-        updateNodeVisuals();
+        updateLocationVisuals();
         drawDistanceLines();
     }
 
