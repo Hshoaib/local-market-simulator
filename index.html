@@ -4,170 +4,141 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Local Market Simulator - Desktop Optimized</title>
+
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22><circle cx=%2216%22 cy=%2216%22 r=%2214%22 fill=%22none%22 stroke=%22%2394a3b8%22 stroke-width=%222%22 stroke-dasharray=%223 3%22/><path d=%22M16 6 C12.13 6 9 9.13 9 13 C9 18.25 16 26 16 26 C16 26 23 18.25 23 13 C23 9.13 19.87 6 16 6 Z%22 fill=%22%233b82f6%22/><circle cx=%2216%22 cy=%2213%22 r=%223%22 fill=%22%2309090b%22/></svg>">
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
 
     <style>
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            background-color: #09090b; color: #e2e8f0; margin: 0; padding: 0;
-            height: 100vh; width: 100vw; overflow: hidden; display: flex; justify-content: center; align-items: center;
+        :root {
+            --bg-main: #09090b;
+            --text-main: #e2e8f0;
+            --text-muted: #94a3b8;
+            --panel-bg: rgba(24, 24, 27, 0.85);
+            --panel-border: rgba(255, 255, 255, 0.1);
+            --shadow-color: rgba(0, 0, 0, 0.4);
+            --hover-bg: rgba(255, 255, 255, 0.1);
+            --input-bg: rgba(0, 0, 0, 0.3);
+            --modal-overlay: rgba(0, 0, 0, 0.6);
+            --modal-bg: #18181b;
+            --math-bg: #09090b;
+            --tooltip-bg: rgba(9, 9, 11, 0.95);
+            --tooltip-text: #f8fafc;
+            --btn-text: white;
+            --btn-bg: rgba(255, 255, 255, 0.1);
+            --btn-hover: rgba(255, 255, 255, 0.2);
+            --text-shadow: #000;
+            --marker-border: #ffffff;
         }
 
+        [data-theme="light"] {
+            --bg-main: #f8fafc;
+            --text-main: #0f172a;
+            --text-muted: #475569;
+            --panel-bg: rgba(255, 255, 255, 0.9);
+            --panel-border: rgba(0, 0, 0, 0.1);
+            --shadow-color: rgba(0, 0, 0, 0.1);
+            --hover-bg: rgba(0, 0, 0, 0.05);
+            --input-bg: rgba(0, 0, 0, 0.03);
+            --modal-overlay: rgba(255, 255, 255, 0.6);
+            --modal-bg: #ffffff;
+            --math-bg: #f1f5f9;
+            --tooltip-bg: rgba(255, 255, 255, 0.95);
+            --tooltip-text: #0f172a;
+            --btn-text: #0f172a;
+            --btn-bg: rgba(0, 0, 0, 0.05);
+            --btn-hover: rgba(0, 0, 0, 0.1);
+            --text-shadow: #fff;
+            --marker-border: #ffffff;
+        }
+
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: var(--bg-main); color: var(--text-main); margin: 0; padding: 0; height: 100vh; width: 100vw; overflow: hidden; display: flex; justify-content: center; align-items: center; }
         .app-container { position: relative; width: 100%; height: 100%; }
         #map { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; }
 
-        /* --- UI Onboarding Animation --- */
-        @keyframes pulse-attention {
-            0% { box-shadow: 0 0 0 0 rgba(251, 191, 36, 0.8); transform: scale(1); }
-            50% { box-shadow: 0 0 0 10px rgba(251, 191, 36, 0); transform: scale(1.1); }
-            100% { box-shadow: 0 0 0 0 rgba(251, 191, 36, 0); transform: scale(1); }
-        }
-        .needs-attention {
-            animation: pulse-attention 1.5s infinite !important;
-            border-color: #fbbf24 !important;
-            color: #fbbf24 !important;
-            z-index: 3000;
-        }
+        @keyframes pulse-attention { 0% { box-shadow: 0 0 0 0 rgba(251, 191, 36, 0.8); transform: scale(1); } 50% { box-shadow: 0 0 0 10px rgba(251, 191, 36, 0); transform: scale(1.1); } 100% { box-shadow: 0 0 0 0 rgba(251, 191, 36, 0); transform: scale(1); } }
+        .needs-attention { animation: pulse-attention 1.5s infinite !important; border-color: #fbbf24 !important; color: #fbbf24 !important; z-index: 3000; }
 
-        .company-sidebar {
-            position: absolute; top: 20px; left: 20px; bottom: 90px; width: 340px;
-            display: flex; flex-direction: column; gap: 15px; overflow-y: auto; pointer-events: none; z-index: 2000;
-        }
+        .company-sidebar { position: absolute; top: 20px; left: 20px; bottom: 90px; width: 340px; display: flex; flex-direction: column; gap: 15px; overflow-y: auto; pointer-events: none; z-index: 2000; }
         .company-sidebar::-webkit-scrollbar { display: none; }
-
-        .company-card {
-            background: rgba(24, 24, 27, 0.85); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
-            border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px; padding: 16px;
-            box-shadow: 0 10px 20px rgba(0,0,0,0.4); pointer-events: auto; border-top: 4px solid; flex-shrink: 0; transition: all 0.2s ease;
-        }
+        .company-card { background: var(--panel-bg); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border: 1px solid var(--panel-border); border-radius: 12px; padding: 16px; box-shadow: 0 10px 20px var(--shadow-color); pointer-events: auto; border-top: 4px solid; flex-shrink: 0; transition: all 0.2s ease; }
 
         .card-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 4px; pointer-events: none; }
-        .card-title { font-weight: 700; font-size: 0.95rem; color: #f8fafc; line-height: 1.3; max-width: 140px; pointer-events: auto; cursor: text;}
+        .card-title { font-weight: 700; font-size: 0.95rem; color: var(--text-main); line-height: 1.3; max-width: 140px; pointer-events: auto; cursor: text;}
         .card-title:hover { color: #fbbf24; }
         .card-header-actions { display: flex; gap: 4px; align-items: center; flex-wrap: wrap; justify-content: flex-end; pointer-events: auto;}
 
-        .action-btn {
-            background: transparent; border: none; color: #94a3b8; font-weight: bold; cursor: pointer;
-            width: 28px; height: 28px; border-radius: 4px; display: flex; align-items: center; justify-content: center; transition: all 0.2s;
-        }
-        .action-btn:hover { background: rgba(255, 255, 255, 0.1); color: white; }
+        .action-btn { background: transparent; border: none; color: var(--text-muted); font-weight: bold; cursor: pointer; width: 28px; height: 28px; border-radius: 4px; display: flex; align-items: center; justify-content: center; transition: all 0.2s; }
+        .action-btn:hover { background: var(--hover-bg); color: var(--text-main); }
         .action-btn.active-merge { color: #fbbf24; background: rgba(251, 191, 36, 0.15); }
         .action-btn.delete-btn:hover { color: #f87171; background: rgba(248, 113, 113, 0.15); }
-
-        .add-site-btn {
-            background: rgba(255, 255, 255, 0.1); border: none; color: white; padding: 6px 10px;
-            border-radius: 4px; font-size: 0.75rem; font-weight: bold; cursor: pointer; transition: background 0.2s; height: 28px;
-        }
-        .add-site-btn:hover { background: rgba(255, 255, 255, 0.2); }
+        .add-site-btn { background: var(--btn-bg); border: 1px solid var(--panel-border); color: var(--text-main); padding: 6px 10px; border-radius: 4px; font-size: 0.75rem; font-weight: bold; cursor: pointer; transition: background 0.2s; height: 28px; }
+        .add-site-btn:hover { background: var(--btn-hover); }
 
         .card-body { display: flex; flex-direction: column; margin-top: 8px; pointer-events: none; }
-
-        .site-row {
-            display: flex; align-items: center; gap: 6px; padding: 8px 4px; border-bottom: 1px solid rgba(255,255,255,0.05);
-            font-size: 0.85rem; border-radius: 4px; transition: background 0.2s, opacity 0.2s; cursor: grab; pointer-events: auto;
-        }
+        .site-row { display: flex; align-items: center; gap: 6px; padding: 8px 4px; border-bottom: 1px solid var(--panel-border); font-size: 0.85rem; border-radius: 4px; transition: background 0.2s, opacity 0.2s; cursor: grab; pointer-events: auto; }
         .site-row:active { cursor: grabbing; }
         .site-row:last-child { border-bottom: none; }
-        .site-row:hover { background: rgba(255, 255, 255, 0.05); }
+        .site-row:hover { background: var(--hover-bg); }
 
-        .site-id { width: 35px; color: #94a3b8; font-weight: 600; font-size: 0.75rem; pointer-events: none;}
+        .site-id { width: 35px; color: var(--text-muted); font-weight: 600; font-size: 0.75rem; pointer-events: none;}
         .site-name { flex: 1; display: flex; }
         .site-vol { width: 60px; display: flex; }
-        .site-share { width: 45px; text-align: right; font-weight: bold; color: #f8fafc; transition: color 0.3s; pointer-events: none;}
+        .site-share { width: 65px; text-align: right; font-weight: bold; color: var(--text-main); transition: color 0.3s; pointer-events: none;}
         .site-warning { width: 16px; display: flex; align-items: center; justify-content: center; transition: opacity 0.2s; pointer-events: none;}
 
-        .hint-text { font-size: 0.75rem; color: #64748b; font-style: italic; margin-top: 8px; pointer-events: none;}
+        .hint-text { font-size: 0.75rem; color: var(--text-muted); font-style: italic; margin-top: 8px; pointer-events: none;}
 
-        .vol-input, .name-input {
-            width: 100%; box-sizing: border-box; padding: 6px; background: rgba(0,0,0,0.3); 
-            border: 1px solid rgba(255,255,255,0.1); color: white; border-radius: 4px; 
-            font-family: monospace; font-size: 0.85rem; outline: none; transition: border 0.2s; cursor: text;
-        }
+        .vol-input, .name-input { width: 100%; box-sizing: border-box; padding: 6px; background: var(--input-bg); border: 1px solid var(--panel-border); color: var(--text-main); border-radius: 4px; font-family: monospace; font-size: 0.85rem; outline: none; transition: border 0.2s; cursor: text; }
         .name-input { font-family: inherit; }
-        .vol-input:focus, .name-input:focus { border-color: rgba(255,255,255,0.5); }
+        .vol-input:focus, .name-input:focus { border-color: var(--text-muted); }
         
-        .site-icon-btn {
-            background: transparent; border: none; color: #64748b; cursor: pointer; padding: 4px; border-radius: 4px;
-            display: flex; align-items: center; justify-content: center; transition: all 0.2s; height: 28px; width: 28px;
-        }
+        .site-icon-btn { background: transparent; border: none; color: var(--text-muted); cursor: pointer; padding: 4px; border-radius: 4px; display: flex; align-items: center; justify-content: center; transition: all 0.2s; height: 28px; width: 28px; }
         .site-icon-btn.del:hover { color: #f87171; background: rgba(248, 113, 113, 0.15); }
 
         .info-btn-container { position: absolute; top: 20px; right: 20px; z-index: 2000; }
-        .top-icon-btn {
-            background: rgba(24, 24, 27, 0.85); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.1);
-            color: #94a3b8; cursor: pointer; padding: 12px; border-radius: 50%; display: flex; align-items: center;
-            justify-content: center; box-shadow: 0 10px 20px rgba(0,0,0,0.4); transition: all 0.2s;
-        }
-        .top-icon-btn:hover { background: rgba(255,255,255,0.1); color: #f8fafc; transform: scale(1.05) !important; }
+        .settings-btn-container { position: absolute; top: 76px; right: 20px; z-index: 2000; }
+        .upload-btn-container { position: absolute; top: 132px; right: 20px; z-index: 2000; }
+        .download-btn-container { position: absolute; top: 188px; right: 20px; z-index: 2000; }
+        
+        .top-icon-btn { background: var(--panel-bg); backdrop-filter: blur(12px); border: 1px solid var(--panel-border); color: var(--text-muted); cursor: pointer; padding: 12px; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 10px 20px var(--shadow-color); transition: all 0.2s; position: relative; }
+        .top-icon-btn:hover { background: var(--hover-bg); color: var(--text-main); transform: scale(1.05) !important; }
 
-        .toggles-container {
-            position: absolute; top: 76px; right: 20px; z-index: 2000;
-            background: rgba(24, 24, 27, 0.85); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
-            border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 8px;
-            padding: 12px 14px; display: flex; flex-direction: column; gap: 8px;
-            box-shadow: 0 10px 20px rgba(0,0,0,0.4);
-        }
-        .toggles-title {
-            font-size: 0.75rem; color: #94a3b8; font-weight: 700; margin-bottom: 2px;
-        }
-        .toggle-label {
-            display: flex; align-items: center; gap: 8px; font-size: 0.85rem;
-            font-weight: 600; color: #e2e8f0; cursor: pointer; user-select: none;
-        }
-        .toggle-label input[type="checkbox"] { cursor: pointer; margin: 0; }
+        .toggle-label { display: flex; align-items: center; gap: 8px; font-size: 0.85rem; font-weight: 600; color: var(--text-main); cursor: pointer; user-select: none; }
+        .toggle-label input[type="checkbox"], .toggle-label input[type="radio"] { cursor: pointer; margin: 0; }
 
-        .bottom-toolbar {
-            position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
-            background: rgba(24, 24, 27, 0.85); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
-            border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 16px; padding: 8px 16px;
-            display: flex; gap: 16px; align-items: center; box-shadow: 0 20px 40px rgba(0,0,0,0.6); pointer-events: auto; user-select: none; z-index: 2000;
-        }
+        .bottom-toolbar { position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); background: var(--panel-bg); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border: 1px solid var(--panel-border); border-radius: 16px; padding: 8px 16px; display: flex; gap: 16px; align-items: center; box-shadow: 0 20px 40px var(--shadow-color); pointer-events: auto; user-select: none; z-index: 2000; }
+        .tool-group { display: flex; align-items: center; gap: 6px; background: var(--input-bg); padding: 4px 6px; border-radius: 10px; border: 1px solid var(--panel-border); position: relative; }
+        .divider { width: 1px; height: 24px; background: var(--panel-border); flex-shrink: 0;}
 
-        .tool-group { display: flex; align-items: center; gap: 6px; background: rgba(0,0,0,0.3); padding: 4px 6px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.05); position: relative; }
-        .divider { width: 1px; height: 24px; background: rgba(255,255,255,0.1); flex-shrink: 0;}
-
-        .icon-btn {
-            background: transparent; border: none; color: #94a3b8; cursor: pointer; padding: 10px; border-radius: 8px;
-            display: flex; align-items: center; justify-content: center; transition: all 0.2s; position: relative; flex-shrink: 0;
-        }
-        .icon-btn:hover { background: rgba(255,255,255,0.1); color: #f8fafc; }
+        .icon-btn { background: transparent; border: none; color: var(--text-muted); cursor: pointer; padding: 10px; border-radius: 8px; display: flex; align-items: center; justify-content: center; transition: all 0.2s; position: relative; flex-shrink: 0; user-select: none; -webkit-user-select: none; }
+        .icon-btn:hover { background: var(--hover-bg); color: var(--text-main); }
         .icon-btn:active { transform: scale(0.95); }
         
-        .toolbar-label { display: flex; flex-direction: column; align-items: center; justify-content: center; color: #e2e8f0; min-width: 48px; font-size: 0.8rem; font-weight: 600; flex-shrink: 0;}
-        .toolbar-label svg { stroke: #94a3b8; margin-bottom: 2px; }
+        .toolbar-label { display: flex; flex-direction: column; align-items: center; justify-content: center; color: var(--text-main); min-width: 48px; font-size: 0.8rem; font-weight: 600; flex-shrink: 0;}
+        .toolbar-label svg { stroke: var(--text-muted); margin-bottom: 2px; }
 
-        .custom-tooltip {
-            position: absolute; bottom: calc(100% + 12px); left: 50%; transform: translateX(-50%) translateY(10px);
-            background: rgba(9, 9, 11, 0.95); color: #f8fafc; padding: 6px 10px; border-radius: 6px; font-size: 0.75rem;
-            font-weight: 600; white-space: nowrap; pointer-events: none; opacity: 0; transition: all 0.2s; border: 1px solid rgba(255,255,255,0.15); z-index: 2100;
-        }
+        .custom-tooltip { position: absolute; bottom: calc(100% + 12px); left: 50%; transform: translateX(-50%) translateY(10px); background: var(--tooltip-bg); color: var(--tooltip-text); padding: 6px 10px; border-radius: 6px; font-size: 0.75rem; font-weight: 600; white-space: nowrap; pointer-events: none; opacity: 0; transition: all 0.2s; border: 1px solid var(--panel-border); z-index: 2100; }
+        .right-tooltip { position: absolute; right: calc(100% + 12px); top: 50%; transform: translateY(-50%) translateX(10px); background: var(--tooltip-bg); color: var(--tooltip-text); padding: 6px 10px; border-radius: 6px; font-size: 0.75rem; font-weight: 600; white-space: nowrap; pointer-events: none; opacity: 0; transition: all 0.2s; border: 1px solid var(--panel-border); z-index: 2100; }
         
         .icon-btn:hover .custom-tooltip, .tool-group:hover .custom-tooltip { opacity: 1; transform: translateX(-50%) translateY(0); }
+        .top-icon-btn:hover .right-tooltip { opacity: 1; transform: translateY(-50%) translateX(0); }
         .bottom-toolbar.show-all-tips .custom-tooltip { opacity: 1; transform: translateX(-50%) translateY(0); }
 
-        .modal-overlay {
-            position: absolute; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); backdrop-filter:blur(6px);
-            display:none; justify-content:center; align-items:center; z-index: 3000; opacity: 0; transition: opacity 0.3s; padding: 20px; box-sizing: border-box;
-        }
+        .modal-overlay { position: absolute; top:0; left:0; width:100%; height:100%; background: var(--modal-overlay); backdrop-filter:blur(6px); display:none; justify-content:center; align-items:center; z-index: 3000; opacity: 0; transition: opacity 0.3s; padding: 20px; box-sizing: border-box; }
         .modal-overlay.show { display: flex; opacity: 1; }
-        .modal-content {
-            background: #18181b; border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 25px;
-            width: 100%; max-width: 500px; color: #e2e8f0; position: relative; max-height: 85vh; overflow-y: auto; 
-            box-shadow: 0 25px 50px rgba(0,0,0,0.5); transform: translateY(20px); transition: transform 0.3s; box-sizing: border-box;
-        }
+        .modal-content { background: var(--modal-bg); border: 1px solid var(--panel-border); border-radius: 12px; padding: 25px; width: 100%; max-width: 500px; color: var(--text-main); position: relative; max-height: 85vh; overflow-y: auto; box-shadow: 0 25px 50px var(--shadow-color); transform: translateY(20px); transition: transform 0.3s; box-sizing: border-box; }
         .modal-overlay.show .modal-content { transform: translateY(0); }
-        .modal-close { position: absolute; top: 12px; right: 12px; cursor: pointer; background: transparent; border: none; color: #94a3b8; transition: color 0.2s; padding: 8px;}
-        .modal-close:hover { color: white; }
-        .modal-content h2 { margin-top: 0; color: #f8fafc; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 10px; font-size: 1.2rem;}
+        .modal-close { position: absolute; top: 12px; right: 12px; cursor: pointer; background: transparent; border: none; color: var(--text-muted); transition: color 0.2s; padding: 8px;}
+        .modal-close:hover { color: var(--text-main); }
+        .modal-content h2 { margin-top: 0; color: var(--text-main); border-bottom: 1px solid var(--panel-border); padding-bottom: 10px; font-size: 1.2rem;}
         .modal-content h3 { font-size: 1rem; color: #fbbf24; margin-bottom: 6px; margin-top: 18px; }
-        .modal-content p, .modal-content ul { font-size: 0.9rem; line-height: 1.5; color: #cbd5e1; margin-top: 0;}
+        .modal-content p, .modal-content ul { font-size: 0.9rem; line-height: 1.5; color: var(--text-muted); margin-top: 0;}
         .modal-content ul { padding-left: 20px; }
         .modal-content li { margin-bottom: 8px; }
-        .math-block { background: #09090b; padding: 12px; border-radius: 6px; font-family: monospace; color: #3b82f6; text-align: center; border: 1px solid rgba(255,255,255,0.05); margin: 15px 0; font-size: 0.85rem;}
+        .math-block { background: var(--math-bg); padding: 12px; border-radius: 6px; font-family: monospace; color: #3b82f6; text-align: center; border: 1px solid var(--panel-border); margin: 15px 0; font-size: 0.85rem;}
 
-        /* Loader */
-        .loader { display: none; width: 16px; height: 16px; border: 2px solid rgba(255,255,255,0.3); border-radius: 50%; border-top-color: #fff; animation: spin 1s ease-in-out infinite; margin-left: 8px; }
+        .loader { display: none; width: 16px; height: 16px; border: 2px solid var(--panel-border); border-radius: 50%; border-top-color: var(--text-main); animation: spin 1s ease-in-out infinite; margin-left: 8px; }
         @keyframes spin { to { transform: rotate(360deg); } }
     </style>
 </head>
@@ -179,11 +150,56 @@
             <div class="modal-content" onclick="event.stopPropagation()">
                 <button class="modal-close" onclick="closeModals(event)"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
                 <h2>Add New Location</h2>
-                <p>Enter a valid UK Postcode to place a location precisely, or leave blank to drop it in the center of the screen.</p>
-                <input type="text" id="postcodeInput" placeholder="e.g. EC3A 7AW" class="vol-input" style="width:100%; padding: 12px; font-size: 1.1rem; margin-bottom: 15px; margin-top: 10px;">
+                <p>Enter a valid UK Postcode or coordinate pair (Lat, Lng) to place a location precisely, or leave blank to drop it in the centre of the screen.</p>
+                <input type="text" id="postcodeInput" placeholder="e.g. EC3A 7AW or 51.51, -0.07" class="vol-input" style="width:100%; padding: 12px; font-size: 1.1rem; margin-bottom: 15px; margin-top: 10px;">
                 <button id="btnConfirmPostcode" class="add-site-btn" style="width:100%; height: 44px; font-size: 1rem; display: flex; justify-content: center; align-items: center;">
                     Place Location <div class="loader" id="postcodeLoader"></div>
                 </button>
+            </div>
+        </div>
+
+        <div class="modal-overlay" id="uploadModal" onclick="closeModals(event)">
+            <div class="modal-content" onclick="event.stopPropagation()">
+                <button class="modal-close" onclick="closeModals(event)"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
+                <h2>Import Locations (CSV)</h2>
+                <p>Upload a CSV file to generate multiple companies and locations simultaneously. The CSV headers must exact match the following format:</p>
+                <ul>
+                    <li><strong>Company</strong> (Required) - e.g., 'Tesco'</li>
+                    <li><strong>Location</strong> (Required) - e.g., 'EC3A 7AW' or '51.51, -0.07'</li>
+                    <li><strong>Name</strong> (Optional) - Store identifier or location name</li>
+                    <li><strong>Volume</strong> (Optional) - Revenue or capacity (Defaults to 100)</li>
+                </ul>
+                <div style="margin: 20px 0; display: flex; gap: 20px; align-items: center; background: var(--input-bg); padding: 12px; border-radius: 8px; border: 1px solid var(--panel-border);">
+                    <label class="toggle-label"><input type="radio" name="uploadMode" id="uploadAppend" value="append" checked> Append to Current Map</label>
+                    <label class="toggle-label"><input type="radio" name="uploadMode" id="uploadReplace" value="replace"> Replace Existing Map</label>
+                </div>
+                <div style="display: flex; align-items: center; gap: 10px; margin-top: 15px;">
+                    <input type="file" id="csvFileInput" accept=".csv" class="vol-input" style="flex: 1; padding: 10px; cursor: pointer;">
+                    <button id="btnProcessCsv" class="add-site-btn" style="height: 42px; padding: 0 20px; font-size: 1rem; display: flex; align-items: center; justify-content: center;">Import <div class="loader" id="uploadLoader"></div></button>
+                </div>
+            </div>
+        </div>
+
+        <div class="modal-overlay" id="settingsModal" onclick="closeModals(event)">
+            <div class="modal-content" onclick="event.stopPropagation()">
+                <button class="modal-close" onclick="closeModals(event)"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
+                <h2>Settings</h2>
+                <h3 style="margin-top: 10px;">Market Dynamics</h3>
+                <label class="toggle-label" style="margin-bottom: 15px;"><input type="checkbox" id="settingUseWeighting" style="width: 18px; height: 18px;"> Calculate Market Share using Distance Weighting</label>
+                <p class="hint-text" style="margin-top: -10px; margin-bottom: 20px;">If disabled, market shares are calculated simply as total allied volume divided by total volume within the catchment area, regardless of distance.</p>
+
+                <h3>Node Scaling (Visual)</h3>
+                <p class="hint-text" style="margin-top: -5px; margin-bottom: 15px;">Set the volume thresholds that define the minimum (16px) and maximum (80px) size of location nodes on the map.</p>
+                <div style="display: flex; gap: 15px; margin-bottom: 20px;">
+                    <div style="flex: 1;"><label style="font-size: 0.8rem; color: var(--text-muted); font-weight: 600; display: block; margin-bottom: 4px;">Minimum Volume</label><input type="number" id="settingMinVol" class="vol-input" style="padding: 10px; font-size: 1rem;"></div>
+                    <div style="flex: 1;"><label style="font-size: 0.8rem; color: var(--text-muted); font-weight: 600; display: block; margin-bottom: 4px;">Maximum Volume</label><input type="number" id="settingMaxVol" class="vol-input" style="padding: 10px; font-size: 1rem;"></div>
+                </div>
+
+                <h3>Display Options</h3>
+                <label class="toggle-label" style="margin-bottom: 10px;"><input type="checkbox" id="settingLightMode" style="width: 18px; height: 18px;"> Enable Light Mode Theme</label>
+                <label class="toggle-label" style="margin-bottom: 10px;"><input type="checkbox" id="settingNames" style="width: 18px; height: 18px;"> Always show Location Names on Map</label>
+                <label class="toggle-label" style="margin-bottom: 20px;"><input type="checkbox" id="settingShares" style="width: 18px; height: 18px;"> Always show Market Shares on Map</label>
+                <button id="btnApplySettings" class="add-site-btn" style="width: 100%; height: 44px; font-size: 1rem; margin-top: 10px;">Apply Changes</button>
             </div>
         </div>
 
@@ -191,34 +207,29 @@
             <div class="modal-content" onclick="event.stopPropagation()">
                 <button class="modal-close" onclick="closeModals(event)"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
                 <h2>Simulator Controls & Features</h2>
-                
                 <h3>Map & Navigation</h3>
                 <ul>
                     <li><strong>Pan & Zoom:</strong> Click and drag the map, scroll, or use pinch-to-zoom.</li>
-                    <li><strong>Select Locations:</strong> Click a marker on the map, or its row in the sidebar, to view its catchment radius and distance lines to competitors. Hold <strong>Ctrl</strong> (or <strong>Cmd</strong> on Mac) while clicking to select multiple locations at once.</li>
-                    <li><strong>Center Map:</strong> Use the crosshair icon in the bottom toolbar to snap back to the starting view.</li>
+                    <li><strong>Select Locations:</strong> Click a marker to view its catchment radius and distance lines to competitors. Hold <strong>Ctrl/Cmd</strong> to select multiple.</li>
+                    <li><strong>Centre Map:</strong> Use the crosshair icon in the bottom toolbar to snap back to the starting view.</li>
                 </ul>
-
                 <h3>Adding & Editing Locations</h3>
                 <ul>
-                    <li><strong>Move Locations:</strong> Click and drag the colored location markers directly on the map.</li>
-                    <li><strong>Add via Postcode:</strong> Click "+ Location" on a company card to place a location via a UK postcode.</li>
-                    <li><strong>Quick Drop:</strong> Double-click anywhere on empty map space to instantly drop a new location.</li>
-                    <li><strong>Adjust Volume (Fast):</strong> Hover your mouse over any map marker and scroll your mouse wheel to easily change its volume in increments of 10.</li>
-                    <li><strong>Manual Edits:</strong> Use the text boxes in the sidebar rows to precisely edit location names and volumes.</li>
+                    <li><strong>Move Locations:</strong> Drag colored markers directly on the map.</li>
+                    <li><strong>Add via Location:</strong> Click "+ Location" on a company card to place via a UK postcode or Lat/Lng.</li>
+                    <li><strong>Import CSV:</strong> Use the upload button to bulk-import locations and volumes.</li>
+                    <li><strong>Quick Drop:</strong> Double-click empty map space to instantly drop a new location.</li>
+                    <li><strong>Adjust Volume (Fast):</strong> Hover over any map marker and scroll your mouse wheel to change volume by 10.</li>
                 </ul>
-
                 <h3>M&A and Remedies</h3>
                 <ul>
-                    <li><strong>Mergers:</strong> Click the chain icon on a company card, then click another company's chain icon to simulate a merger between them.</li>
-                    <li><strong>Rename:</strong> Double-click a company's name in the sidebar to rename it. If you rename a merged group, unmerging will restore their original names!</li>
-                    <li><strong>Divestitures:</strong> Click and drag a location row from one company card and drop it onto another company to transfer ownership.</li>
-                    <li><strong>Delete:</strong> Click the 'X' on a location row to delete it, or the 'X' on a company card to remove the entire company.</li>
+                    <li><strong>Mergers:</strong> Click the chain icon on a company card, then click another company's chain icon to merge.</li>
+                    <li><strong>Divestitures:</strong> Drag a location row from one company card and drop it onto another to transfer ownership.</li>
                 </ul>
-
                 <h3>Market Parameters (Bottom Toolbar)</h3>
                 <ul>
-                    <li><strong>Threshold:</strong> Adjust the Safe Harbor threshold (%). Locations exceeding this market share will flag a warning and pulse red.</li>
+                    <li><strong>Mode Toggle:</strong> Switch between Market Share (%) and Fascia Count (#) modes. Fascia mode evaluates the number of distinct competitors within the catchment area.</li>
+                    <li><strong>Threshold:</strong> Adjust the Safe Harbor threshold. Locations triggering this threshold will flag a warning and pulse red.</li>
                     <li><strong>Radius (Dmax):</strong> Adjust the maximum catchment distance in Kilometers.</li>
                     <li><strong>Shuffle:</strong> Generate a completely random local market scenario!</li>
                 </ul>
@@ -238,23 +249,22 @@
                 <h3>3. Calculating Market Share</h3>
                 <p>To find a specific location's local market share, we take its volume, add the weighted volume of all allied stores in range, and divide it by the total weighted volume of ALL stores in range.</p>
                 <div class="math-block">Share = Σ(Allied Weighted Vol) / Σ(Total Weighted Vol)</div>
+                <h3>4. Fascia Counting (Alternative Mode)</h3>
+                <p>Instead of calculating volume shares, this mode simply counts the number of distinct corporate entities (fascias) operating within the catchment area, including the target location. Authorities often use "4-to-3" or "3-to-2" fascia reduction screens as an initial indicator of local market concentration.</p>
             </div>
         </div>
 
         <div class="info-btn-container">
-            <button class="top-icon-btn needs-attention" id="btnInfo">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
-            </button>
+            <button class="top-icon-btn needs-attention" id="btnInfo"><span class="right-tooltip">The Math</span><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg></button>
         </div>
-
-        <div class="toggles-container">
-            <div class="toggles-title">Always show:</div>
-            <label class="toggle-label">
-                <input type="checkbox" id="toggleNames"> Names
-            </label>
-            <label class="toggle-label">
-                <input type="checkbox" id="toggleShares"> Shares
-            </label>
+        <div class="settings-btn-container">
+            <button class="top-icon-btn" id="btnSettings"><span class="right-tooltip">Settings</span><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg></button>
+        </div>
+        <div class="upload-btn-container">
+            <button class="top-icon-btn" id="btnUpload"><span class="right-tooltip">Import CSV</span><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg></button>
+        </div>
+        <div class="download-btn-container">
+            <button class="top-icon-btn" id="btnDownload"><span class="right-tooltip">Download CSV</span><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg></button>
         </div>
 
         <div class="company-sidebar" id="companySidebar"></div>
@@ -262,7 +272,7 @@
         <div class="bottom-toolbar" id="bottomToolbar">
             <button class="icon-btn needs-attention" id="btnHelp"><span class="custom-tooltip">Help</span><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg></button>
             <div class="divider"></div>
-            <button class="icon-btn" id="btnCenter"><span class="custom-tooltip">Center Map</span><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="16"></line><line x1="8" y1="12" x2="16" y2="12"></line></svg></button>
+            <button class="icon-btn" id="btnCenter"><span class="custom-tooltip">Centre Map</span><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="16"></line><line x1="8" y1="12" x2="16" y2="12"></line></svg></button>
             <div class="divider"></div>
             <div class="tool-group">
                 <span class="custom-tooltip">Companies</span>
@@ -273,6 +283,14 @@
             <div class="divider"></div>
             <button class="icon-btn" id="btnReset"><span class="custom-tooltip">Reset</span><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><path d="M3 3v5h5"></path></svg></button>
             <div class="divider"></div>
+
+            <button class="icon-btn" id="btnModeToggle">
+                <span class="custom-tooltip" id="modeTooltip">Mode: Market Share</span>
+                <svg id="iconShareMode" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"></path><path d="M22 12A10 10 0 0 0 12 2v10z"></path></svg>
+                <svg id="iconFasciaMode" style="display:none;" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+            </button>
+            <div class="divider"></div>
+
             <div class="tool-group">
                 <span class="custom-tooltip">Threshold</span>
                 <button class="icon-btn" id="btnWarnMinus" style="padding: 4px 8px;">-</button>
@@ -294,9 +312,21 @@
     </div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+<script src="https://unpkg.com/papaparse@5.4.1/papaparse.min.js" crossorigin=""></script>
 
 <script>
-    // --- Onboarding Removal ---
+    // --- Application State Variables ---
+    let useDistanceWeighting = true;
+    let scaleMinVol = 0;
+    let scaleMaxVol = 500;
+    let alwaysShowNames = false;
+    let alwaysShowShares = false;
+    let isLightMode = false;
+    let calcMode = 'share'; // 'share' or 'fascia'
+    let shareThreshold = 35;
+    let fasciaThreshold = 4;
+    let DMAX = 10;
+
     let onboardingActive = true;
     function removeOnboarding() {
         if (!onboardingActive) return;
@@ -306,47 +336,32 @@
     document.addEventListener('click', removeOnboarding, { capture: true, once: true });
 
     // --- Map Initialization ---
-    // True coordinates for EC3A 7AW
     const startLat = 51.514771;
     const startLng = -0.076981;
-
+    
     const map = L.map('map', { zoomControl: false, doubleClickZoom: false }).setView([startLat, startLng], 12);
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-        maxZoom: 19, attribution: '&copy; <a href="https://carto.com/attributions">CARTO</a>'
+    const tileLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+        maxZoom: 19,
+        attribution: '&copy; <a href="https://carto.com/attributions">CARTO</a>'
     }).addTo(map);
     L.control.zoom({ position: 'bottomright' }).addTo(map);
     map.on('dragstart', removeOnboarding);
 
     function getDistanceFromLatLonInKm(lat1, lon1, lat2, lon2) {
         const R = 6371; 
-        const dLat = (lat2 - lat1) * (Math.PI / 180); const dLon = (lon2 - lon1) * (Math.PI / 180);
+        const dLat = (lat2 - lat1) * (Math.PI / 180);
+        const dLon = (lon2 - lon1) * (Math.PI / 180);
         const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) + Math.cos(lat1 * (Math.PI / 180)) * Math.cos(lat2 * (Math.PI / 180)) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
         return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))); 
     }
 
     const companySidebar = document.getElementById('companySidebar');
     const bottomToolbar = document.getElementById('bottomToolbar');
-    
-    // --- New Toggle State ---
-    let alwaysShowNames = false;
-    let alwaysShowShares = false;
 
-    document.getElementById('toggleNames').addEventListener('change', (e) => {
-        alwaysShowNames = e.target.checked;
-        updateLocationVisuals();
-    });
-    
-    document.getElementById('toggleShares').addEventListener('change', (e) => {
-        alwaysShowShares = e.target.checked;
-        updateLocationVisuals();
-    });
-
-    // --- Tooltip Hover Logic ---
     const btnHelp = document.getElementById('btnHelp');
     btnHelp.addEventListener('mouseenter', () => bottomToolbar.classList.add('show-all-tips'));
     btnHelp.addEventListener('mouseleave', () => bottomToolbar.classList.remove('show-all-tips'));
 
-    let DMAX = 10; let THRESHOLD = 35;
     const companyColors = ['#3b82f6', '#ef4444', '#22c55e', '#f59e0b', '#a855f7', '#06b6d4', '#f43f5e', '#6366f1', '#f97316', '#14b8a6'];
     const fakeNames = ['Aperture Sci.', 'Stark Ind.', 'SprawlMart', 'Buy n Large', 'Initech', 'Soylent Corp', 'Globex', 'Umbrella Corp', 'Acme Corp.', 'Wayne Ent.'];
 
@@ -355,200 +370,567 @@
     const iconDelete = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>`;
     const iconWarning = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#f87171" stroke-width="2"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>`;
 
-    let activeCompanies = []; let locations = [];
+    let activeCompanies = [];
+    let locations = [];
     let pendingMergeCompId = null; 
     let activeLocationIds = []; 
     let pendingPostcodeCompId = null;
-    let mapCircles = {}; let mapMarkers = {}; let mapLines = [];
+    let mapCircles = {}; 
+    let mapMarkers = {}; 
+    let mapLines = [];
 
     function clearMapLayers() {
-        Object.values(mapMarkers).forEach(m => map.removeLayer(m));
+        Object.values(mapMarkers).forEach(m => map.removeLayer(m)); 
         Object.values(mapCircles).forEach(c => map.removeLayer(c));
-        mapLines.forEach(l => map.removeLayer(l));
-        mapMarkers = {}; mapCircles = {}; mapLines = [];
+        mapLines.forEach(l => map.removeLayer(l)); 
+        mapMarkers = {}; 
+        mapCircles = {}; 
+        mapLines = [];
     }
 
-    // Clicking anywhere empty on the map clears all selections
-    map.on('click', () => { activeLocationIds = []; draw(); renderCards(); });
+    map.on('click', () => { 
+        activeLocationIds = []; 
+        draw(); 
+        renderCards(); 
+    });
 
     map.on('dblclick', (e) => {
-        removeOnboarding();
+        removeOnboarding(); 
         if (activeCompanies.length === 0) return;
         const rootId = activeCompanies[0].id; 
         const comp = activeCompanies.find(c => c.id === rootId);
-        const newLocation = { id: `${rootId}X${comp.nextSiteId++}`, comp: rootId, vol: 100, lat: e.latlng.lat, lng: e.latlng.lng, name: '' };
-        locations.push(newLocation); activeLocationIds = [newLocation.id]; 
-        calculateShares(); draw(); renderCards();
+        const newLocation = { 
+            id: `${rootId}X${comp.nextSiteId++}`, 
+            comp: rootId, 
+            vol: 100, 
+            lat: e.latlng.lat, 
+            lng: e.latlng.lng, 
+            name: '', 
+            share: 100, 
+            fasciaCount: 1 
+        };
+        locations.push(newLocation); 
+        activeLocationIds = [newLocation.id]; 
+        calculateShares(); 
+        draw(); 
+        renderCards();
     });
 
     function closeModals(e) {
         if(e && e.target.closest('.modal-content') && !e.target.closest('.modal-close')) return;
-        document.getElementById('helpModal').classList.remove('show');
+        document.getElementById('helpModal').classList.remove('show'); 
         document.getElementById('infoModal').classList.remove('show');
-        document.getElementById('postcodeModal').classList.remove('show');
+        document.getElementById('postcodeModal').classList.remove('show'); 
+        document.getElementById('uploadModal').classList.remove('show');
+        document.getElementById('settingsModal').classList.remove('show');
     }
+    
     document.getElementById('btnInfo').onclick = () => document.getElementById('infoModal').classList.add('show');
     document.getElementById('btnHelp').onclick = () => document.getElementById('helpModal').classList.add('show');
+    document.getElementById('btnUpload').onclick = () => document.getElementById('uploadModal').classList.add('show');
+    
+    document.getElementById('btnDownload').onclick = () => {
+        const exportData = locations.map(loc => { 
+            const rootComp = getRootComp(loc.comp); 
+            const compName = rootComp.alias || rootComp.name; 
+            return { 
+                Company: compName, 
+                Location: `${loc.lat.toFixed(5)}, ${loc.lng.toFixed(5)}`, 
+                Name: loc.name || '', 
+                Volume: loc.vol 
+            }; 
+        });
+        const blob = new Blob([Papa.unparse(exportData)], { type: 'text/csv;charset=utf-8;' }); 
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a"); 
+        link.setAttribute("href", url); 
+        link.setAttribute("download", "simulator_locations_export.csv"); 
+        document.body.appendChild(link); 
+        link.click(); 
+        document.body.removeChild(link);
+    };
+
+    document.getElementById('btnSettings').onclick = () => {
+        document.getElementById('settingUseWeighting').checked = useDistanceWeighting; 
+        document.getElementById('settingMinVol').value = scaleMinVol; 
+        document.getElementById('settingMaxVol').value = scaleMaxVol;
+        document.getElementById('settingNames').checked = alwaysShowNames; 
+        document.getElementById('settingShares').checked = alwaysShowShares; 
+        document.getElementById('settingLightMode').checked = isLightMode;
+        document.getElementById('settingsModal').classList.add('show');
+    };
+
+    document.getElementById('btnApplySettings').onclick = () => {
+        useDistanceWeighting = document.getElementById('settingUseWeighting').checked; 
+        alwaysShowNames = document.getElementById('settingNames').checked;
+        alwaysShowShares = document.getElementById('settingShares').checked; 
+        isLightMode = document.getElementById('settingLightMode').checked;
+        
+        if (isLightMode) { 
+            document.documentElement.setAttribute('data-theme', 'light'); 
+            tileLayer.setUrl('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png'); 
+        } else { 
+            document.documentElement.removeAttribute('data-theme'); 
+            tileLayer.setUrl('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'); 
+        }
+
+        const newMin = parseFloat(document.getElementById('settingMinVol').value); 
+        const newMax = parseFloat(document.getElementById('settingMaxVol').value);
+        if (!isNaN(newMin)) scaleMinVol = newMin; 
+        if (!isNaN(newMax)) scaleMaxVol = newMax;
+        if (scaleMinVol >= scaleMaxVol) scaleMaxVol = scaleMinVol + 1;
+
+        closeModals(); 
+        calculateShares(); 
+        draw(); 
+        renderCards(); 
+        updateDataDisplays();
+    };
+
+    document.getElementById('btnModeToggle').onclick = () => {
+        calcMode = calcMode === 'share' ? 'fascia' : 'share';
+        document.getElementById('iconShareMode').style.display = calcMode === 'share' ? 'block' : 'none';
+        document.getElementById('iconFasciaMode').style.display = calcMode === 'fascia' ? 'block' : 'none';
+        document.getElementById('modeTooltip').innerText = calcMode === 'share' ? 'Mode: Market Share' : 'Mode: Fascia Count';
+        updateToolbarDisplay(); 
+        updateDataDisplays(); 
+        updateLocationVisuals(); 
+        renderCards();
+    };
+
+    function isLocationWarning(loc) { 
+        return calcMode === 'share' ? loc.share >= shareThreshold : loc.fasciaCount < fasciaThreshold; 
+    }
 
     async function geocodePostcode(postcode) {
-        try {
-            const clean = postcode.replace(/\s+/g, '').toLowerCase();
-            const res = await fetch(`https://api.postcodes.io/postcodes/${clean}`);
-            if (!res.ok) throw new Error('Not found');
-            const data = await res.json();
+        try { 
+            const clean = postcode.replace(/\s+/g, '').toLowerCase(); 
+            const res = await fetch(`https://api.postcodes.io/postcodes/${clean}`); 
+            if (!res.ok) throw new Error('Not found'); 
+            const data = await res.json(); 
             return { lat: data.result.latitude, lng: data.result.longitude, formatted: data.result.postcode };
-        } catch (err) { return null; }
+        } catch (err) { 
+            return null; 
+        }
+    }
+    
+    async function bulkGeocode(postcodes) {
+        const results = {}; 
+        const cleanPostcodes = postcodes.map(p => p.replace(/\s+/g, '').toLowerCase());
+        for(let i = 0; i < cleanPostcodes.length; i += 100) {
+            const batch = cleanPostcodes.slice(i, i + 100);
+            try {
+                const res = await fetch('https://api.postcodes.io/postcodes', { 
+                    method: 'POST', 
+                    headers: { 'Content-Type': 'application/json' }, 
+                    body: JSON.stringify({ postcodes: batch }) 
+                });
+                if(!res.ok) continue; 
+                const data = await res.json(); 
+                data.result.forEach(item => { 
+                    if(item.result) results[item.query] = { lat: item.result.latitude, lng: item.result.longitude }; 
+                });
+            } catch(err) { 
+                console.error("Bulk geocode failed", err); 
+            }
+        }
+        return results;
     }
 
     document.getElementById('btnConfirmPostcode').onclick = async () => {
         if (!pendingPostcodeCompId) return;
-        const inputEl = document.getElementById('postcodeInput'); const loader = document.getElementById('postcodeLoader');
-        const val = inputEl.value.trim(); const comp = activeCompanies.find(c => c.id === pendingPostcodeCompId);
+        const inputEl = document.getElementById('postcodeInput'); 
+        const loader = document.getElementById('postcodeLoader');
+        const val = inputEl.value.trim(); 
+        const comp = activeCompanies.find(c => c.id === pendingPostcodeCompId); 
         let targetLat, targetLng;
 
         if (val === '') {
-            const center = map.getCenter(); targetLat = center.lat; targetLng = center.lng; 
+            const mapCenter = map.getCenter(); 
+            targetLat = mapCenter.lat; 
+            targetLng = mapCenter.lng; 
+        } else if (val.includes(',')) {
+            const parts = val.split(','); 
+            const parsedLat = parseFloat(parts[0]); 
+            const parsedLng = parseFloat(parts[1]);
+            if (isNaN(parsedLat) || isNaN(parsedLng)) { 
+                alert("Invalid coordinates."); 
+                return; 
+            } 
+            targetLat = parsedLat; 
+            targetLng = parsedLng; 
+            map.flyTo([targetLat, targetLng], map.getZoom(), { duration: 1.5 });
         } else {
-            loader.style.display = 'block'; const coords = await geocodePostcode(val); loader.style.display = 'none';
-            if (!coords) { alert("Invalid or missing UK Postcode."); return; }
-            targetLat = coords.lat; targetLng = coords.lng; 
+            loader.style.display = 'block'; 
+            const coords = await geocodePostcode(val); 
+            loader.style.display = 'none';
+            if (!coords) { 
+                alert("Invalid Postcode."); 
+                return; 
+            } 
+            targetLat = coords.lat; 
+            targetLng = coords.lng; 
             map.flyTo([targetLat, targetLng], map.getZoom(), { duration: 1.5 });
         }
-
-        const newLocation = { id: `${comp.id}X${comp.nextSiteId++}`, comp: comp.id, vol: 100, lat: targetLat, lng: targetLng, name: '' };
-        locations.push(newLocation); activeLocationIds = [newLocation.id]; 
-        closeModals(); inputEl.value = ''; calculateShares(); draw(); renderCards();
+        
+        const newId = `${comp.id}X${comp.nextSiteId++}`;
+        const newLocation = { 
+            id: newId, 
+            comp: comp.id, 
+            vol: 100, 
+            lat: targetLat, 
+            lng: targetLng, 
+            name: '', 
+            share: 100, 
+            fasciaCount: 1 
+        };
+        locations.push(newLocation); 
+        activeLocationIds = [newId]; 
+        
+        closeModals(); 
+        inputEl.value = ''; 
+        calculateShares(); 
+        draw(); 
+        renderCards();
+    };
+    
+    document.getElementById('btnProcessCsv').onclick = () => {
+        const fileInput = document.getElementById('csvFileInput'); 
+        if (!fileInput.files.length) { 
+            alert("Please select a CSV file."); 
+            return; 
+        }
+        
+        Papa.parse(fileInput.files[0], { 
+            header: true, 
+            skipEmptyLines: true, 
+            complete: async function(results) {
+                const rows = results.data; 
+                if (!results.meta.fields.includes('Company') || !results.meta.fields.includes('Location')) { 
+                    alert("Missing 'Company' or 'Location' headers."); 
+                    return; 
+                }
+                const loader = document.getElementById('uploadLoader'); 
+                loader.style.display = 'inline-block';
+                const uniquePostcodes = [...new Set(rows.map(r => r['Location']).filter(Boolean).filter(loc => !loc.includes(',')))];
+                let geocodedDict = {}; 
+                if (uniquePostcodes.length > 0) geocodedDict = await bulkGeocode(uniquePostcodes);
+                const isReplace = document.getElementById('uploadReplace').checked;
+                if (isReplace) { 
+                    clearMapLayers(); 
+                    activeCompanies = []; 
+                    locations = []; 
+                    activeLocationIds = []; 
+                    pendingMergeCompId = null; 
+                }
+                let failedRows = [];
+                rows.forEach((row, index) => {
+                    const rowNum = index + 2; 
+                    const compName = row['Company']?.trim(); 
+                    const locRaw = row['Location']?.trim(); 
+                    const locName = row['Name']?.trim() || '';
+                    const rawVol = parseFloat(row['Volume']); 
+                    const vol = isNaN(rawVol) ? 100 : Math.max(0, rawVol);
+                    
+                    if (!compName || !locRaw) { 
+                        failedRows.push(rowNum); 
+                        return; 
+                    }
+                    
+                    let coords = null;
+                    if (locRaw.includes(',')) { 
+                        const parts = locRaw.split(','); 
+                        const parsedLat = parseFloat(parts[0]); 
+                        const parsedLng = parseFloat(parts[1]); 
+                        if (!isNaN(parsedLat) && !isNaN(parsedLng)) {
+                            coords = { lat: parsedLat, lng: parsedLng };
+                        }
+                    } else { 
+                        const postCodeQuery = locRaw.replace(/\s+/g, '').toLowerCase(); 
+                        coords = geocodedDict[postCodeQuery]; 
+                    }
+                    
+                    if (!coords) { 
+                        failedRows.push(rowNum); 
+                        return; 
+                    }
+                    
+                    let comp = activeCompanies.find(c => c.name.toLowerCase() === compName.toLowerCase());
+                    if (!comp) { 
+                        const newId = (activeCompanies.length > 0 ? Math.max(...activeCompanies.map(c => c.id)) : 0) + 1; 
+                        comp = { id: newId, name: compName, color: companyColors[(newId - 1) % companyColors.length], nextSiteId: 1, collapsed: false, mergedInto: null, alias: null }; 
+                        activeCompanies.push(comp);
+                    } else { 
+                        comp = getRootComp(comp.id); 
+                    }
+                    
+                    locations.push({ 
+                        id: `${comp.id}X${comp.nextSiteId++}`, 
+                        comp: comp.id, 
+                        vol: vol, 
+                        lat: coords.lat, 
+                        lng: coords.lng, 
+                        name: locName, 
+                        share: 0, 
+                        fasciaCount: 1 
+                    });
+                });
+                loader.style.display = 'none'; 
+                closeModals(); 
+                fileInput.value = '';
+                if (locations.length > 0 && isReplace) map.setView([locations[0].lat, locations[0].lng], 10);
+                calculateShares(); 
+                draw(); 
+                renderCards(); 
+                if (failedRows.length > 0) alert(`Skipped invalid rows: ${failedRows.join(', ')}`);
+            }
+        });
     };
 
-    function getUniqueName() {
-        const usedNames = activeCompanies.map(c => c.name); const available = fakeNames.filter(n => !usedNames.includes(n));
-        return available.length === 0 ? fakeNames[0] : available[Math.floor(Math.random() * available.length)];
+    function getUniqueName() { 
+        const usedNames = activeCompanies.map(c => c.name); 
+        const available = fakeNames.filter(n => !usedNames.includes(n)); 
+        return available.length === 0 ? fakeNames[0] : available[Math.floor(Math.random() * available.length)]; 
     }
-
-    function getRootComp(compId) {
-        let comp = activeCompanies.find(c => c.id === compId);
-        while (comp && comp.mergedInto) { comp = activeCompanies.find(c => c.id === comp.mergedInto); }
-        return comp;
+    
+    function getRootComp(compId) { 
+        let comp = activeCompanies.find(c => c.id === compId); 
+        while (comp && comp.mergedInto) { 
+            comp = activeCompanies.find(c => c.id === comp.mergedInto); 
+        } 
+        return comp; 
     }
-
-    function getGroupedCompanies() {
-        let roots = activeCompanies.filter(c => !c.mergedInto);
-        return roots.map(root => { let members = activeCompanies.filter(c => getRootComp(c.id).id === root.id); return { root, members }; });
+    
+    function getGroupedCompanies() { 
+        let roots = activeCompanies.filter(c => !c.mergedInto); 
+        return roots.map(root => { 
+            let members = activeCompanies.filter(c => getRootComp(c.id).id === root.id); 
+            return { root, members }; 
+        }); 
     }
 
     function toggleMerge(targetId) {
-        if (pendingMergeCompId === null) pendingMergeCompId = targetId; 
-        else if (pendingMergeCompId === targetId) pendingMergeCompId = null; 
-        else {
-            let source = activeCompanies.find(c => c.id === pendingMergeCompId);
-            if(source) source.mergedInto = targetId;
-            pendingMergeCompId = null; calculateShares();
+        if (pendingMergeCompId === null) {
+            pendingMergeCompId = targetId; 
+        } else if (pendingMergeCompId === targetId) {
+            pendingMergeCompId = null; 
+        } else { 
+            let source = activeCompanies.find(c => c.id === pendingMergeCompId); 
+            if(source) source.mergedInto = targetId; 
+            pendingMergeCompId = null; 
+            calculateShares(); 
         }
-        draw(); renderCards();
+        draw(); 
+        renderCards();
     }
-
-    function unmerge(rootId) {
-        activeCompanies.forEach(c => { if (getRootComp(c.id).id === rootId && c.id !== rootId) c.mergedInto = null; });
-        const root = activeCompanies.find(c => c.id === rootId);
-        if (root) root.alias = null; // Clear override name when unmerged
-        calculateShares(); draw(); renderCards();
+    
+    function unmerge(rootId) { 
+        activeCompanies.forEach(c => { 
+            if (getRootComp(c.id).id === rootId && c.id !== rootId) c.mergedInto = null; 
+        }); 
+        const root = activeCompanies.find(c => c.id === rootId); 
+        if (root) root.alias = null; 
+        calculateShares(); 
+        draw(); 
+        renderCards(); 
     }
-
-    function deleteCompany(compId) {
-        activeCompanies.forEach(c => { if (c.mergedInto === compId) c.mergedInto = null; });
-        if (pendingMergeCompId === compId) pendingMergeCompId = null;
-        activeCompanies = activeCompanies.filter(c => c.id !== compId);
-        locations = locations.filter(n => n.comp !== compId);
-        
-        // Remove deleted nodes from active selection
-        activeLocationIds = activeLocationIds.filter(id => locations.find(n => n.id === id));
-        
-        calculateShares(); draw(); renderCards();
+    
+    function deleteCompany(compId) { 
+        activeCompanies.forEach(c => { 
+            if (c.mergedInto === compId) c.mergedInto = null; 
+        }); 
+        if (pendingMergeCompId === compId) pendingMergeCompId = null; 
+        activeCompanies = activeCompanies.filter(c => c.id !== compId); 
+        locations = locations.filter(n => n.comp !== compId); 
+        activeLocationIds = activeLocationIds.filter(id => locations.find(n => n.id === id)); 
+        calculateShares(); 
+        draw(); 
+        renderCards(); 
     }
-
-    function deleteLocation(locationId) {
-        locations = locations.filter(n => n.id !== locationId);
-        activeLocationIds = activeLocationIds.filter(id => id !== locationId);
-        calculateShares(); draw(); renderCards();
+    
+    function deleteLocation(locationId) { 
+        locations = locations.filter(n => n.id !== locationId); 
+        activeLocationIds = activeLocationIds.filter(id => id !== locationId); 
+        calculateShares(); 
+        draw(); 
+        renderCards(); 
     }
     
     function moveLocationToCompany(locationId, targetCompId) {
-        const location = locations.find(n => n.id === locationId);
+        const location = locations.find(n => n.id === locationId); 
         if (!location || getRootComp(location.comp).id === targetCompId) return;
 
-        const nextRoot = activeCompanies.find(c => c.id === targetCompId);
+        const nextRoot = activeCompanies.find(c => c.id === targetCompId); 
         location.comp = nextRoot.id; 
         const newId = `${nextRoot.id}X${nextRoot.nextSiteId++}`;
         
-        if (activeLocationIds.includes(location.id)) {
-            activeLocationIds = activeLocationIds.filter(id => id !== location.id);
-            activeLocationIds.push(newId);
+        if (activeLocationIds.includes(location.id)) { 
+            activeLocationIds = activeLocationIds.filter(id => id !== location.id); 
+            activeLocationIds.push(newId); 
         }
         
-        if(mapCircles[location.id]) { map.removeLayer(mapCircles[location.id]); delete mapCircles[location.id]; }
-        if(mapMarkers[location.id]) { map.removeLayer(mapMarkers[location.id]); delete mapMarkers[location.id]; }
+        if(mapCircles[location.id]) { 
+            map.removeLayer(mapCircles[location.id]); 
+            delete mapCircles[location.id]; 
+        } 
+        if(mapMarkers[location.id]) { 
+            map.removeLayer(mapMarkers[location.id]); 
+            delete mapMarkers[location.id]; 
+        }
         
-        location.id = newId; calculateShares(); draw(); renderCards();
+        location.id = newId; 
+        calculateShares(); 
+        draw(); 
+        renderCards();
     }
 
     function initBaseState() {
         clearMapLayers(); 
-        pendingMergeCompId = null; activeLocationIds = []; pendingPostcodeCompId = null;
-        activeCompanies = [{ id: 1, name: getUniqueName(), color: companyColors[0], nextSiteId: 2, collapsed: false, mergedInto: null, alias: null }];
-        locations = [{ id: '1X1', comp: 1, vol: 100, lat: startLat, lng: startLng, name: '', share: 100 }];
-        map.setView([startLat, startLng], 12);
-        calculateShares(); draw(); renderCards();
+        pendingMergeCompId = null; 
+        activeLocationIds = []; 
+        pendingPostcodeCompId = null; 
+        calcMode = 'share';
+        document.getElementById('iconShareMode').style.display = 'block'; 
+        document.getElementById('iconFasciaMode').style.display = 'none';
+        
+        activeCompanies = [{ 
+            id: 1, 
+            name: getUniqueName(), 
+            color: companyColors[0], 
+            nextSiteId: 2, 
+            collapsed: false, 
+            mergedInto: null, 
+            alias: null 
+        }];
+        locations = [{ 
+            id: '1X1', 
+            comp: 1, 
+            vol: 100, 
+            lat: startLat, 
+            lng: startLng, 
+            name: '', 
+            share: 100, 
+            fasciaCount: 1 
+        }];
+        map.setView([startLat, startLng], 12); 
+        calculateShares(); 
+        draw(); 
+        renderCards();
     }
 
     function updateToolbarDisplay() {
-        document.getElementById('warnVal').innerText = `${THRESHOLD}%`;
+        const warnValEl = document.getElementById('warnVal');
+        warnValEl.innerText = calcMode === 'share' ? `${shareThreshold}%` : `${fasciaThreshold}`;
         document.getElementById('distVal').innerText = `${DMAX}km`;
     }
 
     document.getElementById('btnCenter').onclick = () => { map.setView([startLat, startLng], 12); };
     document.getElementById('btnReset').onclick = initBaseState;
 
-    document.getElementById('btnCompMinus').onclick = () => { if (activeCompanies.length > 1) { deleteCompany(activeCompanies[activeCompanies.length - 1].id); } };
-    document.getElementById('btnCompPlus').onclick = () => { 
+    function makeHoldable(btnId, actionFn) {
+        const btn = document.getElementById(btnId); 
+        if (!btn) return;
+        let timer, interval;
+        const start = (e) => { 
+            if (e.type !== 'touchstart' && e.button !== 0) return; 
+            e.preventDefault(); 
+            actionFn(); 
+            timer = setTimeout(() => { interval = setInterval(actionFn, 100); }, 400); 
+        };
+        const stop = (e) => { 
+            if (e) e.preventDefault(); 
+            clearTimeout(timer); 
+            clearInterval(interval); 
+        };
+        btn.addEventListener('mousedown', start); 
+        btn.addEventListener('touchstart', start, { passive: false });
+        btn.addEventListener('mouseup', stop); 
+        btn.addEventListener('mouseleave', stop); 
+        btn.addEventListener('touchend', stop); 
+        btn.addEventListener('touchcancel', stop);
+    }
+
+    makeHoldable('btnCompMinus', () => { 
+        if (activeCompanies.length > 1) { 
+            deleteCompany(activeCompanies[activeCompanies.length - 1].id); 
+        } 
+    });
+    
+    makeHoldable('btnCompPlus', () => { 
         if (activeCompanies.length < 10) { 
-            const nextIdx = activeCompanies.length; const newId = (activeCompanies.length > 0 ? Math.max(...activeCompanies.map(c=>c.id)) : 0) + 1;
-            activeCompanies.push({ id: newId, name: getUniqueName(), color: companyColors[nextIdx], nextSiteId: 1, collapsed: false, mergedInto: null, alias: null });
+            const newId = (activeCompanies.length > 0 ? Math.max(...activeCompanies.map(c=>c.id)) : 0) + 1; 
+            activeCompanies.push({ id: newId, name: getUniqueName(), color: companyColors[(newId-1) % companyColors.length], nextSiteId: 1, collapsed: false, mergedInto: null, alias: null }); 
             renderCards(); 
         } 
-    };
-
-    document.getElementById('btnWarnMinus').onclick = () => { if(THRESHOLD > 5) THRESHOLD -= 5; updateToolbarDisplay(); calculateShares(); draw(); updateDataDisplays(); };
-    document.getElementById('btnWarnPlus').onclick = () => { if(THRESHOLD < 100) THRESHOLD += 5; updateToolbarDisplay(); calculateShares(); draw(); updateDataDisplays(); };
-    document.getElementById('btnDistMinus').onclick = () => { if(DMAX > 1) DMAX -= 1; updateToolbarDisplay(); calculateShares(); draw(); updateDataDisplays(); };
-    document.getElementById('btnDistPlus').onclick = () => { if(DMAX < 50) DMAX += 1; updateToolbarDisplay(); calculateShares(); draw(); updateDataDisplays(); };
+    });
+    
+    makeHoldable('btnWarnMinus', () => { 
+        if (calcMode === 'share' && shareThreshold > 5) shareThreshold -= 5;
+        if (calcMode === 'fascia' && fasciaThreshold > 1) fasciaThreshold -= 1;
+        updateToolbarDisplay(); 
+        updateDataDisplays(); 
+        updateLocationVisuals(); 
+        renderCards(); 
+    });
+    
+    makeHoldable('btnWarnPlus', () => { 
+        if (calcMode === 'share' && shareThreshold < 100) shareThreshold += 5;
+        if (calcMode === 'fascia' && fasciaThreshold < 20) fasciaThreshold += 1;
+        updateToolbarDisplay(); 
+        updateDataDisplays(); 
+        updateLocationVisuals(); 
+        renderCards(); 
+    });
+    
+    makeHoldable('btnDistMinus', () => { 
+        if (DMAX > 1) { 
+            DMAX -= 1; 
+            updateToolbarDisplay(); 
+            calculateShares(); 
+            draw(); 
+            updateDataDisplays(); 
+        } 
+    });
+    
+    makeHoldable('btnDistPlus', () => { 
+        DMAX += 1; 
+        updateToolbarDisplay(); 
+        calculateShares(); 
+        draw(); 
+        updateDataDisplays(); 
+    });
 
     document.getElementById('btnShuffle').onclick = () => {
         clearMapLayers(); 
-        
         const numComps = Math.floor(Math.random() * 4) + 2; 
-        let tempComps = []; let tempUsedNames = [];
+        let tempComps = []; 
+        let tempUsedNames = [];
         
         for (let i = 0; i < numComps; i++) {
-            let avail = fakeNames.filter(n => !tempUsedNames.includes(n));
+            let avail = fakeNames.filter(n => !tempUsedNames.includes(n)); 
             let name = avail.length > 0 ? avail[Math.floor(Math.random() * avail.length)] : "Corp";
-            tempUsedNames.push(name);
+            tempUsedNames.push(name); 
             tempComps.push({ id: i+1, name: name, color: companyColors[i % 10], nextSiteId: 1, collapsed: false, mergedInto: null, alias: null });
         }
 
-        activeCompanies = tempComps; locations = []; pendingMergeCompId = null; activeLocationIds = [];
-        
+        activeCompanies = tempComps; 
+        locations = []; 
+        pendingMergeCompId = null; 
+        activeLocationIds = []; 
         const center = map.getCenter();
+        
         activeCompanies.forEach(comp => {
             const numLocationsForComp = Math.floor(Math.random() * 3) + 1;
             for (let i = 0; i < numLocationsForComp; i++) {
                 const vol = Math.floor(Math.random() * 26 + 5) * 10; 
-                const spawnLat = center.lat + ((Math.random() - 0.5) * 0.15);
+                const spawnLat = center.lat + ((Math.random() - 0.5) * 0.15); 
                 const spawnLng = center.lng + ((Math.random() - 0.5) * 0.25);
-                locations.push({ id: `${comp.id}X${comp.nextSiteId++}`, comp: comp.id, vol: vol, lat: spawnLat, lng: spawnLng, name: '', share: 0 });
+                locations.push({ id: `${comp.id}X${comp.nextSiteId++}`, comp: comp.id, vol: vol, lat: spawnLat, lng: spawnLng, name: '', share: 0, fasciaCount: 1 });
             }
         });
-
-        calculateShares(); draw(); renderCards();
+        calculateShares(); 
+        draw(); 
+        renderCards();
     };
 
     function renderCards() {
@@ -556,184 +938,253 @@
         const groupedComps = getGroupedCompanies();
 
         groupedComps.forEach(group => {
-            const root = group.root; const members = group.members;
-            const card = document.createElement('div'); card.className = 'company-card'; card.style.borderTopColor = root.color;
+            const root = group.root; 
+            const members = group.members;
+            const card = document.createElement('div'); 
+            card.className = 'company-card'; 
+            card.style.borderTopColor = root.color;
 
-            card.addEventListener('dragover', (e) => { e.preventDefault(); card.style.boxShadow = `0 0 15px ${root.color}`; card.style.borderColor = root.color; });
-            card.addEventListener('dragleave', (e) => { card.style.boxShadow = ''; card.style.borderColor = ''; card.style.borderTopColor = root.color; });
+            card.addEventListener('dragover', (e) => { 
+                e.preventDefault(); 
+                card.style.boxShadow = `0 0 15px ${root.color}`; 
+                card.style.borderColor = root.color; 
+            });
+            card.addEventListener('dragleave', (e) => { 
+                card.style.boxShadow = ''; 
+                card.style.borderColor = ''; 
+                card.style.borderTopColor = root.color; 
+            });
             card.addEventListener('drop', (e) => {
-                e.preventDefault(); card.style.boxShadow = ''; card.style.borderColor = ''; card.style.borderTopColor = root.color;
-                const draggedLocationId = e.dataTransfer.getData('text/plain');
+                e.preventDefault(); 
+                card.style.boxShadow = ''; 
+                card.style.borderColor = ''; 
+                card.style.borderTopColor = root.color;
+                const draggedLocationId = e.dataTransfer.getData('text/plain'); 
                 if (draggedLocationId) moveLocationToCompany(draggedLocationId, root.id);
             });
 
-            const header = document.createElement('div'); header.className = 'card-header';
+            const header = document.createElement('div'); 
+            header.className = 'card-header';
             
-            // Allow double-clicking the title to rename
             const combinedName = root.alias || members.map(m => m.name).join(' + ');
-            const titleEl = document.createElement('div');
-            titleEl.className = 'card-title';
-            titleEl.title = "Double-click to rename";
+            const titleEl = document.createElement('div'); 
+            titleEl.className = 'card-title'; 
+            titleEl.title = "Double-click to rename"; 
             titleEl.innerText = combinedName;
             
             titleEl.ondblclick = (e) => {
-                e.stopPropagation();
-                const input = document.createElement('input');
-                input.type = 'text';
-                input.className = 'name-input'; // Using same styling class
+                e.stopPropagation(); 
+                const input = document.createElement('input'); 
+                input.type = 'text'; 
+                input.className = 'name-input'; 
                 input.value = root.alias ? root.alias : (members.length > 1 ? combinedName : root.name);
-                input.style.padding = '2px 6px';
-                input.style.fontSize = '0.95rem';
-                input.style.fontWeight = '700';
-                input.style.height = '24px';
+                input.style.padding = '2px 6px'; 
+                input.style.fontSize = '0.95rem'; 
+                input.style.fontWeight = '700'; 
+                input.style.height = '24px'; 
                 input.style.width = '140px';
                 
                 const saveName = () => {
                     const val = input.value.trim();
-                    if (members.length > 1) {
-                        root.alias = val !== '' ? val : null;
-                    } else {
-                        if (val !== '') root.name = val;
-                        root.alias = null;
+                    if (members.length > 1) { 
+                        root.alias = val !== '' ? val : null; 
+                    } else { 
+                        if (val !== '') root.name = val; 
+                        root.alias = null; 
                     }
                     renderCards();
                 };
                 
-                input.onblur = saveName;
+                input.onblur = saveName; 
                 input.onkeydown = (ev) => { if (ev.key === 'Enter') saveName(); };
                 
-                titleEl.innerHTML = '';
-                titleEl.appendChild(input);
-                input.focus();
+                titleEl.innerHTML = ''; 
+                titleEl.appendChild(input); 
+                input.focus(); 
                 input.select();
             };
-            
             header.appendChild(titleEl);
             
-            const actionsDiv = document.createElement('div'); actionsDiv.className = 'card-header-actions';
+            const actionsDiv = document.createElement('div'); 
+            actionsDiv.className = 'card-header-actions';
 
-            const mergeBtn = document.createElement('button'); mergeBtn.className = 'action-btn';
-            if (members.length > 1) { mergeBtn.innerHTML = iconBrokenChain; mergeBtn.title = "Unmerge"; mergeBtn.onclick = () => unmerge(root.id); } 
-            else { mergeBtn.innerHTML = iconChain; mergeBtn.title = "Merge"; if (pendingMergeCompId === root.id) mergeBtn.classList.add('active-merge'); mergeBtn.onclick = () => toggleMerge(root.id); }
+            const mergeBtn = document.createElement('button'); 
+            mergeBtn.className = 'action-btn';
+            if (members.length > 1) { 
+                mergeBtn.innerHTML = iconBrokenChain; 
+                mergeBtn.title = "Unmerge"; 
+                mergeBtn.onclick = () => unmerge(root.id); 
+            } else { 
+                mergeBtn.innerHTML = iconChain; 
+                mergeBtn.title = "Merge"; 
+                if (pendingMergeCompId === root.id) mergeBtn.classList.add('active-merge'); 
+                mergeBtn.onclick = () => toggleMerge(root.id); 
+            }
             actionsDiv.appendChild(mergeBtn);
 
-            const addBtn = document.createElement('button'); addBtn.className = 'add-site-btn'; addBtn.innerText = '+ Location';
-            addBtn.onclick = () => { pendingPostcodeCompId = root.id; document.getElementById('postcodeModal').classList.add('show'); document.getElementById('postcodeInput').focus(); };
+            const addBtn = document.createElement('button'); 
+            addBtn.className = 'add-site-btn'; 
+            addBtn.innerText = '+ Location';
+            addBtn.onclick = () => { 
+                pendingPostcodeCompId = root.id; 
+                document.getElementById('postcodeModal').classList.add('show'); 
+                document.getElementById('postcodeInput').focus(); 
+            };
             actionsDiv.appendChild(addBtn);
 
-            const minBtn = document.createElement('button'); minBtn.className = 'action-btn'; minBtn.innerHTML = root.collapsed ? '+' : '−';
-            minBtn.onclick = () => { root.collapsed = !root.collapsed; renderCards(); };
+            const minBtn = document.createElement('button'); 
+            minBtn.className = 'action-btn'; 
+            minBtn.innerHTML = root.collapsed ? '+' : '−';
+            minBtn.onclick = () => { 
+                root.collapsed = !root.collapsed; 
+                renderCards(); 
+            };
             actionsDiv.appendChild(minBtn);
 
-            const delCompBtn = document.createElement('button'); delCompBtn.className = 'action-btn delete-btn'; delCompBtn.innerHTML = iconDelete;
+            const delCompBtn = document.createElement('button'); 
+            delCompBtn.className = 'action-btn delete-btn'; 
+            delCompBtn.innerHTML = iconDelete;
             delCompBtn.onclick = () => deleteCompany(root.id);
             actionsDiv.appendChild(delCompBtn);
 
-            header.appendChild(actionsDiv); card.appendChild(header);
+            header.appendChild(actionsDiv); 
+            card.appendChild(header);
 
-            const body = document.createElement('div'); body.className = 'card-body';
+            const body = document.createElement('div'); 
+            body.className = 'card-body';
             if (root.collapsed) body.style.display = 'none';
 
-            let groupLocations = []; members.forEach(m => { groupLocations = groupLocations.concat(locations.filter(n => n.comp === m.id)); });
-            groupLocations.sort((a,b) => b.share - a.share); 
+            let groupLocations = []; 
+            members.forEach(m => { 
+                groupLocations = groupLocations.concat(locations.filter(n => n.comp === m.id)); 
+            });
             
-            if (groupLocations.length === 0) {
-                const empty = document.createElement('div'); empty.className = 'hint-text'; empty.innerText = 'No locations active.'; body.appendChild(empty);
+            groupLocations.sort((a,b) => calcMode === 'share' ? b.share - a.share : a.fasciaCount - b.fasciaCount); 
+            
+            if (groupLocations.length === 0) { 
+                const empty = document.createElement('div'); 
+                empty.className = 'hint-text'; 
+                empty.innerText = 'No locations active.'; 
+                body.appendChild(empty); 
             }
 
             groupLocations.forEach(n => {
-                const row = document.createElement('div'); row.className = 'site-row';
+                const row = document.createElement('div'); 
+                row.className = 'site-row'; 
                 row.draggable = true;
-                row.ondragstart = (e) => { e.dataTransfer.setData('text/plain', n.id); row.style.opacity = '0.4'; };
-                row.ondragend = () => { row.style.opacity = '1'; };
+                
+                row.ondragstart = (e) => { 
+                    e.dataTransfer.setData('text/plain', n.id); 
+                    row.style.opacity = '0.4'; 
+                }; 
+                row.ondragend = () => { 
+                    row.style.opacity = '1'; 
+                };
 
                 if (activeLocationIds.includes(n.id)) { 
-                    row.style.backgroundColor = 'rgba(255, 255, 255, 0.15)'; 
+                    row.style.backgroundColor = 'var(--hover-bg)'; 
                     row.style.borderLeft = `3px solid ${activeCompanies.find(c=>c.id===n.comp).color}`; 
                 }
                 
                 let idPrefix = members.length > 1 ? `<span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:${activeCompanies.find(c=>c.id===n.comp).color};margin-right:4px;"></span>` : '';
+                const displayVal = calcMode === 'share' ? `${(n.share || 100).toFixed(1)}%` : `${n.fasciaCount} Fascias`;
 
                 row.innerHTML = `
                     <div class="site-id" title="Orig. Co ID: ${n.comp}">${idPrefix}#${n.id.split('X')[1]}</div>
                     <div class="site-name"><input type="text" id="name-${n.id}" class="name-input" placeholder="Name" value="${n.name || ''}"></div>
                     <div class="site-vol"><input type="number" id="vol-${n.id}" class="vol-input" value="${n.vol}" min="0" step="10"></div>
-                    <div class="site-share" id="share-${n.id}">${(n.share || 100).toFixed(1)}%</div>
-                    <div class="site-warning" id="warn-${n.id}" style="opacity: ${n.share >= THRESHOLD ? '1' : '0'};" title="Threshold Exceeded">${iconWarning}</div>
+                    <div class="site-share" id="share-${n.id}">${displayVal}</div>
+                    <div class="site-warning" id="warn-${n.id}" style="opacity: ${isLocationWarning(n) ? '1' : '0'};" title="Threshold Exceeded">${iconWarning}</div>
                 `;
                 
                 row.onclick = (e) => {
                     if(e.target.tagName === 'INPUT' || e.target.closest('button')) return;
-                    
-                    if (e.ctrlKey || e.metaKey) {
-                        if (activeLocationIds.includes(n.id)) {
-                            activeLocationIds = activeLocationIds.filter(id => id !== n.id);
-                        } else {
-                            activeLocationIds.push(n.id);
-                        }
-                    } else {
-                        if (activeLocationIds.length === 1 && activeLocationIds[0] === n.id) {
-                            activeLocationIds = []; // toggle off if it's the only one
-                        } else {
-                            activeLocationIds = [n.id]; // isolate selection
-                        }
+                    if (e.ctrlKey || e.metaKey) { 
+                        activeLocationIds.includes(n.id) ? activeLocationIds = activeLocationIds.filter(id => id !== n.id) : activeLocationIds.push(n.id); 
+                    } else { 
+                        activeLocationIds.length === 1 && activeLocationIds[0] === n.id ? activeLocationIds = [] : activeLocationIds = [n.id]; 
                     }
-                    draw(); renderCards();
+                    draw(); 
+                    renderCards();
                 };
 
-                const delSiteBtn = document.createElement('button'); delSiteBtn.className = 'site-icon-btn del'; delSiteBtn.innerHTML = iconDelete;
-                delSiteBtn.onclick = (e) => { e.stopPropagation(); deleteLocation(n.id); }
+                const delSiteBtn = document.createElement('button'); 
+                delSiteBtn.className = 'site-icon-btn del'; 
+                delSiteBtn.innerHTML = iconDelete;
+                delSiteBtn.onclick = (e) => { 
+                    e.stopPropagation(); 
+                    deleteLocation(n.id); 
+                }
                 row.appendChild(delSiteBtn);
 
-                // Correctly select the input within the created row element
                 const nameInput = row.querySelector('.name-input');
-                nameInput.addEventListener('input', (e) => {
-                    n.name = e.target.value;
-                    updateLocationVisuals();
+                nameInput.addEventListener('input', (e) => { 
+                    n.name = e.target.value; 
+                    updateLocationVisuals(); 
                 });
-
+                
                 const volInput = row.querySelector('.vol-input');
-                volInput.addEventListener('input', (e) => {
-                    const newVol = parseFloat(e.target.value); n.vol = isNaN(newVol) || newVol < 0 ? 0 : newVol;
-                    calculateShares(); draw(); updateDataDisplays(); 
+                volInput.addEventListener('input', (e) => { 
+                    const newVol = parseFloat(e.target.value); 
+                    n.vol = isNaN(newVol) || newVol < 0 ? 0 : newVol; 
+                    calculateShares(); 
+                    draw(); 
+                    updateDataDisplays(); 
                 });
+                
                 body.appendChild(row);
             });
 
-            card.appendChild(body); companySidebar.appendChild(card);
+            card.appendChild(body); 
+            companySidebar.appendChild(card);
         });
     }
 
     function updateDataDisplays() {
         locations.forEach(n => {
-            const shareEl = document.getElementById(`share-${n.id}`); const warnEl = document.getElementById(`warn-${n.id}`);
-            if (shareEl) shareEl.innerText = `${(n.share || 100).toFixed(1)}%`;
-            if (warnEl) warnEl.style.opacity = n.share >= THRESHOLD ? '1' : '0';
+            const shareEl = document.getElementById(`share-${n.id}`); 
+            const warnEl = document.getElementById(`warn-${n.id}`);
             
-            const nameEl = document.getElementById(`name-${n.id}`);
+            if (shareEl) shareEl.innerText = calcMode === 'share' ? `${(n.share || 100).toFixed(1)}%` : `${n.fasciaCount} Fascias`;
+            if (warnEl) warnEl.style.opacity = isLocationWarning(n) ? '1' : '0';
+            
+            const nameEl = document.getElementById(`name-${n.id}`); 
             if (nameEl && document.activeElement !== nameEl) nameEl.value = n.name || '';
-
-            const volEl = document.getElementById(`vol-${n.id}`);
+            
+            const volEl = document.getElementById(`vol-${n.id}`); 
             if (volEl && document.activeElement !== volEl) volEl.value = n.vol;
         });
     }
 
     function calculateShares() {
         locations.forEach(target => {
-            let num = 0; let den = 0; let targetRoot = getRootComp(target.comp);
+            let num = 0; 
+            let den = 0; 
+            let targetRoot = getRootComp(target.comp);
+            let uniqueFascias = new Set();
+            
             locations.forEach(neighbor => {
                 const distKm = getDistanceFromLatLonInKm(target.lat, target.lng, neighbor.lat, neighbor.lng);
                 if (distKm <= DMAX) {
-                    const weight = (DMAX - distKm) / DMAX; const weightedVol = weight * neighbor.vol; 
-                    den += weightedVol; if (targetRoot.id === getRootComp(neighbor.comp).id) { num += weightedVol; }
+                    const neighborRoot = getRootComp(neighbor.comp);
+                    uniqueFascias.add(neighborRoot.id);
+                    
+                    const weight = useDistanceWeighting ? ((DMAX - distKm) / DMAX) : 1; 
+                    const weightedVol = weight * neighbor.vol; 
+                    den += weightedVol; 
+                    if (targetRoot.id === neighborRoot.id) { 
+                        num += weightedVol; 
+                    }
                 }
             });
             target.share = den > 0 ? (num / den) * 100 : 100; 
+            target.fasciaCount = uniqueFascias.size;
         });
     }
 
     function drawDistanceLines() {
-        mapLines.forEach(line => map.removeLayer(line)); mapLines = [];
+        mapLines.forEach(line => map.removeLayer(line)); 
+        mapLines = [];
         
         activeLocationIds.forEach(activeId => {
             const activeLocation = locations.find(n => n.id === activeId);
@@ -743,22 +1194,18 @@
                         const distKm = getDistanceFromLatLonInKm(activeLocation.lat, activeLocation.lng, neighbor.lat, neighbor.lng);
                         if (distKm <= DMAX) {
                             const compColor = getRootComp(neighbor.comp).color;
-                            
-                            const line = L.polyline(
-                                [[activeLocation.lat, activeLocation.lng], [neighbor.lat, neighbor.lng]], 
-                                { color: compColor, weight: 2.5, opacity: 0.6, dashArray: '4, 8', interactive: false }
-                            ).addTo(map);
+                            const line = L.polyline([[activeLocation.lat, activeLocation.lng], [neighbor.lat, neighbor.lng]], { 
+                                color: compColor, weight: 2.5, opacity: 0.6, dashArray: '4, 8', interactive: false 
+                            }).addTo(map);
                             mapLines.push(line);
 
-                            const midLat = (activeLocation.lat + neighbor.lat) / 2;
+                            const midLat = (activeLocation.lat + neighbor.lat) / 2; 
                             const midLng = (activeLocation.lng + neighbor.lng) / 2;
-                            
                             const labelHtml = `
-                                <div style="transform: translate(-50%, -50%); color: ${compColor}; font-size: 0.8rem; font-weight: 800; white-space: nowrap; pointer-events: none; text-shadow: 0px 0px 4px #000, 0px 0px 4px #000, 1px 1px 2px #000;">
+                                <div style="transform: translate(-50%, -50%); color: ${compColor}; font-size: 0.8rem; font-weight: 800; white-space: nowrap; pointer-events: none; text-shadow: 0px 0px 4px var(--text-shadow), 0px 0px 4px var(--text-shadow), 1px 1px 2px var(--text-shadow);">
                                     ${distKm.toFixed(2)} km
                                 </div>
                             `;
-                            
                             const labelIcon = L.divIcon({ html: labelHtml, className: '', iconSize: [0, 0] });
                             const labelMarker = L.marker([midLat, midLng], { icon: labelIcon, interactive: false }).addTo(map);
                             mapLines.push(labelMarker);
@@ -771,22 +1218,36 @@
 
     function updateLocationVisuals() {
         locations.forEach(n => {
-            const nRoot = getRootComp(n.comp); const isWarn = n.share >= THRESHOLD; const isSel = activeLocationIds.includes(n.id); 
+            const nRoot = getRootComp(n.comp); 
+            const isWarn = isLocationWarning(n); 
+            const isSel = activeLocationIds.includes(n.id); 
             const cColor = isWarn ? '#ef4444' : nRoot.color;
-            if (mapCircles[n.id]) { mapCircles[n.id].setRadius(DMAX * 1000); mapCircles[n.id].setStyle({ color: cColor, fillColor: cColor, opacity: isSel ? 1 : 0, fillOpacity: isSel ? (isWarn ? 0.2 : 0.08) : 0, weight: isWarn ? 2 : 1 }); }
+            
+            if (mapCircles[n.id]) { 
+                mapCircles[n.id].setRadius(DMAX * 1000); 
+                mapCircles[n.id].setStyle({ color: cColor, fillColor: cColor, opacity: isSel ? 1 : 0, fillOpacity: isSel ? (isWarn ? 0.2 : 0.08) : 0, weight: isWarn ? 2 : 1 }); 
+            }
             
             const coreEl = document.getElementById(`core-${n.id}`);
             if (coreEl) {
-                const baseCoreSize = Math.max(16, Math.min(80, 12 + (n.vol / 6))); 
+                const MIN_PX = 16; 
+                const MAX_PX = 80;
+                let scaleFactor = (n.vol - scaleMinVol) / (scaleMaxVol - scaleMinVol);
+                scaleFactor = Math.max(0, Math.min(1, scaleFactor)); 
+                
+                const baseCoreSize = MIN_PX + (scaleFactor * (MAX_PX - MIN_PX));
                 const nSize = isSel ? baseCoreSize + 6 : baseCoreSize;
-                coreEl.style.width = `${nSize}px`; coreEl.style.height = `${nSize}px`;
-                coreEl.style.backgroundColor = nRoot.color; coreEl.style.border = `${isSel ? 3 : 2}px solid ${isWarn ? '#ef4444' : 'white'}`;
+                
+                coreEl.style.width = `${nSize}px`; 
+                coreEl.style.height = `${nSize}px`;
+                coreEl.style.backgroundColor = nRoot.color; 
+                coreEl.style.border = `${isSel ? 3 : 2}px solid ${isWarn ? '#ef4444' : 'var(--marker-border)'}`;
                 coreEl.style.boxShadow = `0 0 10px ${isWarn ? '#ef4444' : nRoot.color}`;
                 coreEl.innerText = n.id.split('X')[1];
                 
                 const tagEl = document.getElementById(`sharetag-${n.id}`);
                 if (tagEl) {
-                    tagEl.innerText = `${n.share.toFixed(1)}% Share`; 
+                    tagEl.innerText = calcMode === 'share' ? `${n.share.toFixed(1)}% Share` : `${n.fasciaCount} Fascias`; 
                     tagEl.style.opacity = (isSel || alwaysShowShares) ? '1' : '0';
                     tagEl.style.top = `-${nSize/2 + 6}px`; 
                     tagEl.style.borderColor = nRoot.color;
@@ -794,20 +1255,19 @@
 
                 const nameTagEl = document.getElementById(`nametag-${n.id}`);
                 if (nameTagEl) {
-                    const safeName = (n.name || '').trim();
+                    const safeName = (n.name || '').trim(); 
                     nameTagEl.innerText = safeName;
                     
-                    if ((isSel || alwaysShowNames) && safeName !== '') {
-                        nameTagEl.style.opacity = '1';
-                        nameTagEl.style.padding = '3px 8px';
-                        nameTagEl.style.borderWidth = '1px';
-                    } else {
-                        nameTagEl.style.opacity = '0';
-                        nameTagEl.style.padding = '0';
-                        nameTagEl.style.borderWidth = '0';
+                    if ((isSel || alwaysShowNames) && safeName !== '') { 
+                        nameTagEl.style.opacity = '1'; 
+                        nameTagEl.style.padding = '3px 8px'; 
+                        nameTagEl.style.borderWidth = '1px'; 
+                    } else { 
+                        nameTagEl.style.opacity = '0'; 
+                        nameTagEl.style.padding = '0'; 
+                        nameTagEl.style.borderWidth = '0'; 
                     }
-                    
-                    nameTagEl.style.top = `${nSize/2 + 6}px`;
+                    nameTagEl.style.top = `${nSize/2 + 6}px`; 
                     nameTagEl.style.borderColor = nRoot.color;
                 }
             }
@@ -816,85 +1276,91 @@
 
     function draw() {
         Object.keys(mapMarkers).forEach(id => {
-            if (!locations.find(n => n.id === id)) { map.removeLayer(mapMarkers[id]); map.removeLayer(mapCircles[id]); delete mapMarkers[id]; delete mapCircles[id]; }
+            if (!locations.find(n => n.id === id)) { 
+                map.removeLayer(mapMarkers[id]); 
+                map.removeLayer(mapCircles[id]); 
+                delete mapMarkers[id]; 
+                delete mapCircles[id]; 
+            }
         });
 
         locations.forEach(location => {
             const rootComp = getRootComp(location.comp);
             
             if (!mapMarkers[location.id]) {
-                mapCircles[location.id] = L.circle([location.lat, location.lng], {
-                    radius: DMAX * 1000, color: rootComp.color, fillColor: rootComp.color, opacity: 0, fillOpacity: 0, weight: 1, interactive: false
-                }).addTo(map);
+                mapCircles[location.id] = L.circle([location.lat, location.lng], { radius: DMAX * 1000, color: rootComp.color, fillColor: rootComp.color, opacity: 0, fillOpacity: 0, weight: 1, interactive: false }).addTo(map);
 
                 const html = `
                 <div class="marker-anchor" style="position: relative; width: 0; height: 0;">
-                    <div id="core-${location.id}" style="box-sizing: border-box; position: absolute; transform: translate(-50%, -50%); width: 22px; height: 22px; background-color: ${rootComp.color}; border: 2px solid white; box-shadow: 0 0 10px ${rootComp.color}; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-size: 10px; font-weight: bold; transition: all 0.15s ease-out;">
+                    <div id="core-${location.id}" style="box-sizing: border-box; position: absolute; transform: translate(-50%, -50%); width: 22px; height: 22px; background-color: ${rootComp.color}; border: 2px solid var(--marker-border); box-shadow: 0 0 10px ${rootComp.color}; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-size: 10px; font-weight: bold; transition: all 0.15s ease-out;">
                         ${location.id.split('X')[1]}
                     </div>
-                    <div id="sharetag-${location.id}" style="position:absolute; transform: translate(-50%, -100%); top: -17px; background:rgba(24,24,27,0.95); padding:3px 8px; border-radius:6px; font-size:12px; color:#f8fafc; border:1px solid ${rootComp.color}; white-space:nowrap; pointer-events:none; font-weight:bold; box-shadow:0 4px 10px rgba(0,0,0,0.5); opacity: 0; transition: opacity 0.2s, top 0.15s; z-index: 1000;">
-                        ${location.share.toFixed(1)}% Share
+                    <div id="sharetag-${location.id}" style="position:absolute; transform: translate(-50%, -100%); top: -17px; background:var(--tooltip-bg); padding:3px 8px; border-radius:6px; font-size:12px; color:var(--tooltip-text); border:1px solid ${rootComp.color}; white-space:nowrap; pointer-events:none; font-weight:bold; box-shadow:0 4px 10px rgba(0,0,0,0.5); opacity: 0; transition: opacity 0.2s, top 0.15s; z-index: 1000;">
+                        ${calcMode === 'share' ? location.share.toFixed(1) + '% Share' : location.fasciaCount + ' Fascias'}
                     </div>
-                    <div id="nametag-${location.id}" style="position:absolute; transform: translate(-50%, 0); background:rgba(24,24,27,0.95); border-radius:6px; font-size:12px; color:#f8fafc; border-style: solid; border-width: 0; padding: 0; white-space:nowrap; pointer-events:none; font-weight:bold; box-shadow:0 4px 10px rgba(0,0,0,0.5); opacity: 0; transition: opacity 0.2s, top 0.15s; z-index: 1000;"></div>
+                    <div id="nametag-${location.id}" style="position:absolute; transform: translate(-50%, 0); background:var(--tooltip-bg); border-radius:6px; font-size:12px; color:var(--tooltip-text); border-style: solid; border-width: 0; padding: 0; white-space:nowrap; pointer-events:none; font-weight:bold; box-shadow:0 4px 10px rgba(0,0,0,0.5); opacity: 0; transition: opacity 0.2s, top 0.15s; z-index: 1000;"></div>
                 </div>`;
+                
                 const icon = L.divIcon({ html: html, className: '', iconSize: [0, 0], iconAnchor: [0, 0] });
                 const marker = L.marker([location.lat, location.lng], { icon: icon, draggable: true }).addTo(map);
                 mapMarkers[location.id] = marker;
 
                 L.DomEvent.on(marker.getElement(), 'wheel', function(e) {
-                    L.DomEvent.stopPropagation(e); L.DomEvent.preventDefault(e);
-                    const freshLocation = locations.find(n => n.id === location.id);
+                    L.DomEvent.stopPropagation(e); 
+                    L.DomEvent.preventDefault(e);
+                    const freshLocation = locations.find(n => n.id === location.id); 
                     if (!freshLocation) return;
-                    
-                    const delta = e.deltaY < 0 ? 10 : -10;
+                    const delta = e.deltaY < 0 ? 10 : -10; 
                     freshLocation.vol = Math.max(0, freshLocation.vol + delta);
-                    calculateShares(); updateDataDisplays(); updateLocationVisuals(); drawDistanceLines(); renderCards();
+                    calculateShares(); 
+                    updateDataDisplays(); 
+                    updateLocationVisuals(); 
+                    drawDistanceLines(); 
+                    renderCards();
                 });
 
                 marker.on('click', (e) => { 
                     L.DomEvent.stopPropagation(e); 
-                    
-                    if (e.originalEvent.ctrlKey || e.originalEvent.metaKey) {
-                        if (activeLocationIds.includes(location.id)) {
-                            activeLocationIds = activeLocationIds.filter(id => id !== location.id);
-                        } else {
-                            activeLocationIds.push(location.id);
-                        }
-                    } else {
-                        if (activeLocationIds.length === 1 && activeLocationIds[0] === location.id) {
-                            activeLocationIds = []; // toggle off if it's the only one
-                        } else {
-                            activeLocationIds = [location.id]; // isolate selection
-                        }
+                    if (e.originalEvent.ctrlKey || e.originalEvent.metaKey) { 
+                        activeLocationIds.includes(location.id) ? activeLocationIds = activeLocationIds.filter(id => id !== location.id) : activeLocationIds.push(location.id); 
+                    } else { 
+                        activeLocationIds.length === 1 && activeLocationIds[0] === location.id ? activeLocationIds = [] : activeLocationIds = [location.id]; 
                     }
-                    
-                    draw(); renderCards(); 
+                    draw(); 
+                    renderCards(); 
                 });
                 
                 marker.on('dragstart', () => { 
-                    if (!activeLocationIds.includes(location.id)) {
-                        activeLocationIds = [location.id];
-                    }
+                    if (!activeLocationIds.includes(location.id)) { 
+                        activeLocationIds = [location.id]; 
+                    } 
                     renderCards(); 
                     updateLocationVisuals(); 
                     drawDistanceLines(); 
                 });
                 
                 marker.on('drag', function(e) {
-                    const freshLocation = locations.find(n => n.id === location.id);
+                    const freshLocation = locations.find(n => n.id === location.id); 
                     if (!freshLocation) return;
                     const pos = e.target.getLatLng(); 
-                    freshLocation.lat = pos.lat; freshLocation.lng = pos.lng; 
+                    freshLocation.lat = pos.lat; 
+                    freshLocation.lng = pos.lng; 
                     mapCircles[location.id].setLatLng(pos);
-                    calculateShares(); updateDataDisplays(); updateLocationVisuals(); drawDistanceLines();
+                    calculateShares(); 
+                    updateDataDisplays(); 
+                    updateLocationVisuals(); 
+                    drawDistanceLines();
                 });
 
                 marker.on('dragend', function(e) {
-                    const freshLocation = locations.find(n => n.id === location.id);
+                    const freshLocation = locations.find(n => n.id === location.id); 
                     if (!freshLocation) return;
                     const pos = e.target.getLatLng(); 
-                    freshLocation.lat = pos.lat; freshLocation.lng = pos.lng;
-                    calculateShares(); draw(); updateDataDisplays();
+                    freshLocation.lat = pos.lat; 
+                    freshLocation.lng = pos.lng;
+                    calculateShares(); 
+                    draw(); 
+                    updateDataDisplays();
                 });
 
             } else {
@@ -907,7 +1373,9 @@
         drawDistanceLines();
     }
 
-    updateToolbarDisplay(); initBaseState();
+    updateToolbarDisplay(); 
+    initBaseState();
+
 </script>
 </body>
 </html>
