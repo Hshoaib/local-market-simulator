@@ -100,6 +100,19 @@
         }
         .top-icon-btn:hover { background: rgba(255,255,255,0.1); color: #f8fafc; transform: scale(1.05) !important; }
 
+        .toggles-container {
+            position: absolute; top: 76px; right: 20px; z-index: 2000;
+            background: rgba(24, 24, 27, 0.85); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 8px;
+            padding: 12px 14px; display: flex; flex-direction: column; gap: 10px;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.4);
+        }
+        .toggle-label {
+            display: flex; align-items: center; gap: 8px; font-size: 0.8rem;
+            font-weight: 600; color: #e2e8f0; cursor: pointer; user-select: none;
+        }
+        .toggle-label input[type="checkbox"] { cursor: pointer; margin: 0; }
+
         .bottom-toolbar {
             position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
             background: rgba(24, 24, 27, 0.85); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
@@ -229,6 +242,15 @@
             </button>
         </div>
 
+        <div class="toggles-container">
+            <label class="toggle-label">
+                <input type="checkbox" id="toggleNames"> Always Show Names
+            </label>
+            <label class="toggle-label">
+                <input type="checkbox" id="toggleShares"> Always Show Shares
+            </label>
+        </div>
+
         <div class="company-sidebar" id="companySidebar"></div>
 
         <div class="bottom-toolbar" id="bottomToolbar">
@@ -299,6 +321,25 @@
     const companySidebar = document.getElementById('companySidebar');
     const bottomToolbar = document.getElementById('bottomToolbar');
     
+    // --- New Toggle State ---
+    let alwaysShowNames = false;
+    let alwaysShowShares = false;
+
+    document.getElementById('toggleNames').addEventListener('change', (e) => {
+        alwaysShowNames = e.target.checked;
+        updateLocationVisuals();
+    });
+    
+    document.getElementById('toggleShares').addEventListener('change', (e) => {
+        alwaysShowShares = e.target.checked;
+        updateLocationVisuals();
+    });
+
+    // --- Tooltip Hover Logic ---
+    const btnHelp = document.getElementById('btnHelp');
+    btnHelp.addEventListener('mouseenter', () => bottomToolbar.classList.add('show-all-tips'));
+    btnHelp.addEventListener('mouseleave', () => bottomToolbar.classList.remove('show-all-tips'));
+
     let DMAX = 10; let THRESHOLD = 35;
     const companyColors = ['#3b82f6', '#ef4444', '#22c55e', '#f59e0b', '#a855f7', '#06b6d4', '#f43f5e', '#6366f1', '#f97316', '#14b8a6'];
     const fakeNames = ['Aperture Sci.', 'Stark Ind.', 'SprawlMart', 'Buy n Large', 'Initech', 'Soylent Corp', 'Globex', 'Umbrella Corp', 'Acme Corp.', 'Wayne Ent.'];
@@ -697,14 +738,16 @@
                 
                 const tagEl = document.getElementById(`sharetag-${n.id}`);
                 if (tagEl) {
-                    tagEl.innerText = `${n.share.toFixed(1)}% Share`; tagEl.style.opacity = isSel ? '1' : '0';
-                    tagEl.style.top = `-${nSize/2 + 6}px`; tagEl.style.borderColor = nRoot.color;
+                    tagEl.innerText = `${n.share.toFixed(1)}% Share`; 
+                    tagEl.style.opacity = (isSel || alwaysShowShares) ? '1' : '0';
+                    tagEl.style.top = `-${nSize/2 + 6}px`; 
+                    tagEl.style.borderColor = nRoot.color;
                 }
 
                 const nameEl = document.getElementById(`nametag-${n.id}`);
                 if (nameEl) {
                     nameEl.innerText = n.name;
-                    nameEl.style.opacity = (isSel && n.name.trim() !== '') ? '1' : '0';
+                    nameEl.style.opacity = ((isSel || alwaysShowNames) && n.name.trim() !== '') ? '1' : '0';
                     nameEl.style.top = `${nSize/2 + 6}px`;
                     nameEl.style.borderColor = nRoot.color;
                     nameEl.style.padding = (n.name.trim() !== '') ? '3px 8px' : '0';
