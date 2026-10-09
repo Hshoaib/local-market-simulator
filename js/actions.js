@@ -78,12 +78,16 @@ function moveLocationToCompany(locationId, targetCompId) {
     refresh();
 }
 
-// Moves a company card (with any merged members) one place up (-1) or down (+1).
-function moveCompanyGroup(rootId, direction) {
+// Moves a company card (with any merged members) one place up (-1) or down (+1), swapping it
+// with the next card the user can see (cards hidden by the local market view are skipped).
+function moveCompanyGroup(rootId, direction, visibleRootIds = null) {
     const groups = getGroupedCompanies();
-    const from = groups.findIndex(g => g.root.id === rootId);
-    const to = from + direction;
-    if (from === -1 || to < 0 || to >= groups.length) return;
+    const order = groups.map(g => g.root.id);
+    const visible = visibleRootIds ? order.filter(id => visibleRootIds.includes(id)) : order;
+    const neighbour = visible[visible.indexOf(rootId) + direction];
+    if (!visible.includes(rootId) || neighbour === undefined) return;
+    const from = order.indexOf(rootId);
+    const to = order.indexOf(neighbour);
     [groups[from], groups[to]] = [groups[to], groups[from]];
     activeCompanies = groups.flatMap(g => g.members);
     renderCards();

@@ -243,7 +243,7 @@ function createMarker(loc) {
         live.lng = pos.lng;
         calculateShares();
         draw();
-        updateDataDisplays();
+        refreshSidebar();
     });
 }
 

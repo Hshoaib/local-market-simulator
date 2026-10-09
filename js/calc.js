@@ -47,6 +47,17 @@ function forEachInCatchment(target, fn) {
     return complete;
 }
 
+// Ids of locations inside the catchment of any selected location (the selected ones included).
+// Pairs whose travel time isn't fetched yet are left out until they are.
+function getSelectedMarketIds() {
+    const ids = new Set();
+    activeLocationIds.forEach(id => {
+        const target = findLocation(id);
+        if (target) forEachInCatchment(target, neighbor => ids.add(neighbor.id));
+    });
+    return ids;
+}
+
 function isLocationWarning(loc) {
     if (loc.status !== 'ok') return false;
     return calcMode === 'share' ? loc.share >= shareThreshold : loc.fasciaCount < fasciaThreshold;

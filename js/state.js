@@ -18,6 +18,7 @@ let scaleMaxVol = 500;
 let alwaysShowNames = true;
 let alwaysShowShares = false;
 let showMarkerNumbers = false;
+let localMarketOnly = false; // Sidebar shows only sites inside the selected catchment(s)
 let isLightMode = false;
 
 // Travel-time routing

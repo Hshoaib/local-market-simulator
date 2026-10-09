@@ -42,6 +42,7 @@ const settingInputs = {
     names: document.getElementById('settingNames'),
     shares: document.getElementById('settingShares'),
     markerNumbers: document.getElementById('settingMarkerNumbers'),
+    localMarketOnly: document.getElementById('settingLocalMarketOnly'),
     lightMode: document.getElementById('settingLightMode'),
     useTravelTime: document.getElementById('settingUseTravelTime'),
     orsKey: document.getElementById('settingOrsApiKey'),
@@ -89,6 +90,7 @@ document.getElementById('btnSettings').onclick = () => {
     settingInputs.shares.checked = alwaysShowShares;
     settingInputs.lightMode.checked = isLightMode;
     settingInputs.markerNumbers.checked = showMarkerNumbers;
+    settingInputs.localMarketOnly.checked = localMarketOnly;
     settingInputs.useTravelTime.checked = useTravelTime;
     travelTimeOptions.hidden = !useTravelTime;
     settingInputs.orsKey.value = orsApiKey;
@@ -106,6 +108,7 @@ document.getElementById('btnApplySettings').onclick = () => {
     alwaysShowShares = settingInputs.shares.checked;
     isLightMode = settingInputs.lightMode.checked;
     showMarkerNumbers = settingInputs.markerNumbers.checked;
+    localMarketOnly = settingInputs.localMarketOnly.checked;
 
     // Travel data is cached per mode and position, so switching needs no invalidation.
     useTravelTime = settingInputs.useTravelTime.checked;
@@ -204,7 +207,7 @@ function onRadiusChange() {
     updateToolbarDisplay();
     calculateShares();
     draw();
-    updateDataDisplays();
+    refreshSidebar();
 }
 
 // Steps the active catchment limit: km for straight-line, minutes for travel time.

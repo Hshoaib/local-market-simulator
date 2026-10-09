@@ -19,13 +19,39 @@ function createButton(className, { html, text, title, onClick }) {
 
 function renderCards() {
     companySidebar.innerHTML = '';
-    const groups = getGroupedCompanies();
-    groups.forEach(({ root, members }, index) => {
-        companySidebar.appendChild(buildCompanyCard(root, members, { isFirst: index === 0, isLast: index === groups.length - 1 }));
+
+    // Local market view: only companies and sites inside the selected catchment(s).
+    const marketIds = localMarketOnly ? getSelectedMarketIds() : null;
+    if (marketIds && marketIds.size === 0) {
+        const hint = document.createElement('div');
+        hint.className = 'sidebar-hint';
+        hint.innerText = 'Select a location to show its local market.';
+        companySidebar.appendChild(hint);
+        return;
+    }
+
+    const groups = getGroupedCompanies()
+        .map(group => ({
+            ...group,
+            sites: group.members.flatMap(m => locations.filter(n => n.comp === m.id && (!marketIds || marketIds.has(n.id))))
+        }))
+        .filter(group => !marketIds || group.sites.length > 0);
+    const visibleRootIds = groups.map(g => g.root.id);
+
+    groups.forEach(({ root, members, sites }, index) => {
+        const position = { isFirst: index === 0, isLast: index === groups.length - 1, visibleRootIds };
+        companySidebar.appendChild(buildCompanyCard(root, members, sites, position));
     });
 }
 
-function buildCompanyCard(root, members, position) {
+// Rebuilds the cards when the local market view is on (the visible set may have changed),
+// otherwise just refreshes the numbers in place.
+function refreshSidebar() {
+    if (localMarketOnly) renderCards();
+    else updateDataDisplays();
+}
+
+function buildCompanyCard(root, members, sites, position) {
     const card = document.createElement('div');
     card.className = 'company-card';
     card.style.borderTopColor = root.color;
@@ -39,7 +65,7 @@ function buildCompanyCard(root, members, position) {
 
     // Rows without a result (pending / no road access) sink to the bottom.
     const statusRank = n => (n.status === 'ok' ? 0 : 1);
-    const groupLocations = members.flatMap(m => locations.filter(n => n.comp === m.id));
+    const groupLocations = [...sites];
     groupLocations.sort((a, b) => statusRank(a) - statusRank(b)
         || (calcMode === 'share' ? b.share - a.share : a.fasciaCount - b.fasciaCount));
 
@@ -80,7 +106,7 @@ function enableLocationDrop(card, root) {
     });
 }
 
-function buildCardHeader(card, root, members, { isFirst, isLast }) {
+function buildCardHeader(card, root, members, { isFirst, isLast, visibleRootIds }) {
     const header = document.createElement('div');
     header.className = 'card-header';
 
@@ -92,8 +118,8 @@ function buildCardHeader(card, root, members, { isFirst, isLast }) {
 
     const reorder = document.createElement('div');
     reorder.className = 'reorder-container';
-    const upBtn = createButton('reorder-btn', { html: iconChevronUp, title: 'Move up', onClick: () => moveCompanyGroup(root.id, -1) });
-    const downBtn = createButton('reorder-btn', { html: iconChevronDown, title: 'Move down', onClick: () => moveCompanyGroup(root.id, 1) });
+    const upBtn = createButton('reorder-btn', { html: iconChevronUp, title: 'Move up', onClick: () => moveCompanyGroup(root.id, -1, visibleRootIds) });
+    const downBtn = createButton('reorder-btn', { html: iconChevronDown, title: 'Move down', onClick: () => moveCompanyGroup(root.id, 1, visibleRootIds) });
     upBtn.disabled = isFirst;
     downBtn.disabled = isLast;
     reorder.append(upBtn, downBtn);

@@ -9,7 +9,7 @@
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
 
-    <link rel="stylesheet" href="css/styles.css?v=2026100904">
+    <link rel="stylesheet" href="css/styles.css?v=2026100905">
 </head>
 <body>
 
@@ -90,6 +90,7 @@
                 <label class="toggle-label setting-toggle"><input type="checkbox" id="settingLightMode"> Enable Light Mode Theme</label>
                 <label class="toggle-label setting-toggle"><input type="checkbox" id="settingNames"> Always show Location Names on Map</label>
                 <label class="toggle-label setting-toggle"><input type="checkbox" id="settingMarkerNumbers"> Show Numbers inside Location Circles</label>
+                <label class="toggle-label setting-toggle"><input type="checkbox" id="settingLocalMarketOnly"> Display company cards only for selected local market</label>
                 <label class="toggle-label setting-toggle gap-lg"><input type="checkbox" id="settingShares"> Always show Market Shares on Map</label>
                 <button id="btnApplySettings" class="add-site-btn">Apply Changes</button>
             </div>
@@ -118,6 +119,7 @@
                     <li><strong>Rename:</strong> Double-click a company name.</li>
                     <li><strong>Reorder:</strong> Use the arrows beside the name to move a card up or down.</li>
                     <li><strong>Colour:</strong> Click the colour swatch beside the name.</li>
+                    <li><strong>Local market view:</strong> Tick "Display company cards only for selected local market" in Settings to list only the companies and sites inside the selected location's catchment (Ctrl/Cmd-click to combine several). With nothing selected, no cards are shown.</li>
                 </ul>
                 <h3>M&A and Remedies</h3>
                 <ul>
@@ -240,14 +242,14 @@
 <script src="https://unpkg.com/papaparse@5.4.1/papaparse.min.js" crossorigin=""></script>
 
 <!-- Bump ?v= on each release so browsers fetch fresh copies instead of mixing cached versions. -->
-<script src="js/config.js?v=2026100904"></script>
-<script src="js/state.js?v=2026100904"></script>
-<script src="js/calc.js?v=2026100904"></script>
-<script src="js/routing.js?v=2026100904"></script>
-<script src="js/map.js?v=2026100904"></script>
-<script src="js/sidebar.js?v=2026100904"></script>
-<script src="js/actions.js?v=2026100904"></script>
-<script src="js/io.js?v=2026100904"></script>
-<script src="js/ui.js?v=2026100904"></script>
+<script src="js/config.js?v=2026100905"></script>
+<script src="js/state.js?v=2026100905"></script>
+<script src="js/calc.js?v=2026100905"></script>
+<script src="js/routing.js?v=2026100905"></script>
+<script src="js/map.js?v=2026100905"></script>
+<script src="js/sidebar.js?v=2026100905"></script>
+<script src="js/actions.js?v=2026100905"></script>
+<script src="js/io.js?v=2026100905"></script>
+<script src="js/ui.js?v=2026100905"></script>
 </body>
 </html>
