@@ -4,8 +4,10 @@ const START_LAT = 51.514771;
 const START_LNG = -0.076981;
 const START_ZOOM = 12;
 
-const TILE_URL_DARK = 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
-const TILE_URL_LIGHT = 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png';
+// CARTO basemaps require a key (free tier: carto.com/basemaps/apikey). It is visible client-side by design.
+const CARTO_API_KEY = 'cb1_4fci_1_14875698e8f5070f9385d535';
+const TILE_URL_DARK = `https://basemaps.cartocdn.com/rastertiles/dark_all/{z}/{x}/{y}{r}.png?key=${CARTO_API_KEY}`;
+const TILE_URL_LIGHT = `https://basemaps.cartocdn.com/rastertiles/light_all/{z}/{x}/{y}{r}.png?key=${CARTO_API_KEY}`;
 
 const MAX_COMPANIES = 10;
 const DEFAULT_VOLUME = 100;
