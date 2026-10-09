@@ -1,20 +1,41 @@
 // --- Application state and company/location helpers ---
 
+// Browser storage can be unavailable (private browsing, blocked third-party iframes).
+function readStorage(key) {
+    try { return localStorage.getItem(key); } catch (err) { return null; }
+}
+function writeStorage(key, value) {
+    try {
+        if (value === null) localStorage.removeItem(key);
+        else localStorage.setItem(key, value);
+    } catch (err) { /* Not persisted */ }
+}
+
 // Settings
 let useDistanceWeighting = true;
 let scaleMinVol = 0;
 let scaleMaxVol = 500;
-let alwaysShowNames = false;
+let alwaysShowNames = true;
 let alwaysShowShares = false;
+let showMarkerNumbers = false;
 let isLightMode = false;
+
+// Travel-time routing
+let useTravelTime = false;
+let travelMode = 'driving-car';
+let drawRoadRoutes = false;
+let rememberOrsKey = readStorage(STORAGE_REMEMBER_KEY) === 'true';
+let orsApiKey = rememberOrsKey ? (readStorage(STORAGE_ORS_KEY) || '') : '';
 
 // Market parameters
 let calcMode = 'share'; // 'share' or 'fascia'
 let shareThreshold = 35;
 let fasciaThreshold = 4;
-let DMAX = 10; // Catchment radius in km
+let catchmentKm = 10;   // Straight-line catchment radius
+let catchmentMins = 10; // Travel-time catchment limit
 
-// Scenario data
+// Scenario data. Each location also carries computed share, fasciaCount and
+// status ('ok' | 'pending' while travel times are missing | 'unroutable').
 let activeCompanies = [];
 let locations = [];
 let pendingMergeCompId = null;
@@ -67,12 +88,13 @@ function createCompany(name) {
 }
 
 function addLocation(comp, lat, lng, { vol = DEFAULT_VOLUME, name = '' } = {}) {
-    const loc = { id: `${comp.id}X${comp.nextSiteId++}`, comp: comp.id, vol, lat, lng, name, share: 100, fasciaCount: 1 };
+    const loc = { id: `${comp.id}X${comp.nextSiteId++}`, comp: comp.id, vol, lat, lng, name, share: 100, fasciaCount: 1, status: 'ok' };
     locations.push(loc);
     return loc;
 }
 
 // Wipes every company, location and selection (map layers included).
+// Travel-time caches are keyed by coordinates, so they stay valid and are kept.
 function clearScenario() {
     clearMapLayers();
     activeCompanies = [];

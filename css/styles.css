@@ -1,5 +1,6 @@
 /* ---------- Theme tokens ---------- */
 :root {
+    color-scheme: dark; /* Native controls (selects, colour picker, scrollbars) match the theme */
     --bg-main: #09090b;
     --text-main: #e2e8f0;
     --text-muted: #94a3b8;
@@ -21,6 +22,7 @@
 }
 
 [data-theme="light"] {
+    color-scheme: light;
     --bg-main: #f8fafc;
     --text-main: #0f172a;
     --text-muted: #475569;
@@ -42,6 +44,7 @@
 }
 
 /* ---------- Layout ---------- */
+[hidden] { display: none !important; }
 body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: var(--bg-main); color: var(--text-main); margin: 0; padding: 0; height: 100vh; width: 100vw; overflow: hidden; display: flex; justify-content: center; align-items: center; }
 .app-container { position: relative; width: 100%; height: 100%; }
 #map { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; }
@@ -54,10 +57,11 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helve
 .company-sidebar::-webkit-scrollbar { display: none; }
 .company-card { background: var(--panel-bg); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border: 1px solid var(--panel-border); border-radius: 12px; padding: 16px; box-shadow: 0 10px 20px var(--shadow-color); pointer-events: auto; border-top: 4px solid; flex-shrink: 0; transition: all 0.2s ease; }
 
-.card-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 4px; pointer-events: none; }
-.card-title { font-weight: 700; font-size: 0.95rem; color: var(--text-main); line-height: 1.3; max-width: 140px; pointer-events: auto; cursor: text; }
+.card-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; margin-bottom: 4px; pointer-events: none; }
+.card-header-left { display: flex; align-items: flex-start; gap: 6px; pointer-events: none; flex: 1; min-width: 0; }
+.card-title { font-weight: 700; font-size: 0.95rem; color: var(--text-main); line-height: 1.3; min-width: 0; overflow-wrap: anywhere; pointer-events: auto; cursor: text; }
 .card-title:hover { color: #fbbf24; }
-.card-header-actions { display: flex; gap: 4px; align-items: center; flex-wrap: wrap; justify-content: flex-end; pointer-events: auto; }
+.card-header-actions { display: flex; gap: 4px; align-items: center; flex-shrink: 0; justify-content: flex-end; pointer-events: auto; }
 
 .action-btn { background: transparent; border: none; color: var(--text-muted); font-weight: bold; cursor: pointer; width: 28px; height: 28px; border-radius: 4px; display: flex; align-items: center; justify-content: center; transition: all 0.2s; }
 .action-btn:hover { background: var(--hover-bg); color: var(--text-main); }
@@ -77,6 +81,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helve
 .site-vol { width: 60px; display: flex; }
 .site-share { width: 65px; text-align: right; font-weight: bold; color: var(--text-main); transition: color 0.3s; pointer-events: none; }
 .site-warning { width: 16px; display: flex; align-items: center; justify-content: center; transition: opacity 0.2s; pointer-events: none; }
+.site-share.pending { color: #fbbf24; pointer-events: auto; cursor: help; }
 .member-dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; margin-right: 4px; }
 
 .hint-text { font-size: 0.75rem; color: var(--text-muted); font-style: italic; margin-top: 8px; pointer-events: none; }
@@ -94,6 +99,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helve
 .settings-btn-container { position: absolute; top: 76px; right: 20px; z-index: 2000; }
 .upload-btn-container { position: absolute; top: 132px; right: 20px; z-index: 2000; }
 .download-btn-container { position: absolute; top: 188px; right: 20px; z-index: 2000; }
+.export-btn-container { position: absolute; top: 244px; right: 20px; z-index: 2000; }
 
 .top-icon-btn { background: var(--panel-bg); backdrop-filter: blur(12px); border: 1px solid var(--panel-border); color: var(--text-muted); cursor: pointer; padding: 12px; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 10px 20px var(--shadow-color); transition: all 0.2s; position: relative; }
 .top-icon-btn:hover { background: var(--hover-bg); color: var(--text-main); transform: scale(1.05) !important; }
@@ -110,6 +116,9 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helve
 .icon-btn:hover { background: var(--hover-bg); color: var(--text-main); }
 .icon-btn:active { transform: scale(0.95); }
 .icon-btn.step-btn { padding: 4px 8px; }
+.icon-btn.running svg { animation: spin 2s linear infinite; }
+.refresh-badge { position: absolute; top: -6px; right: -6px; min-width: 18px; box-sizing: border-box; padding: 2px 5px; border-radius: 9px; background: #fbbf24; color: #09090b; font-size: 0.65rem; font-weight: bold; line-height: 1.2; text-align: center; pointer-events: none; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.5); }
+.refresh-badge.running { background: #3b82f6; color: white; }
 
 .toolbar-label { display: flex; flex-direction: column; align-items: center; justify-content: center; color: var(--text-main); min-width: 48px; font-size: 0.8rem; font-weight: 600; flex-shrink: 0; }
 .toolbar-label svg { stroke: var(--text-muted); margin-bottom: 2px; }
@@ -155,6 +164,12 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helve
 .scale-inputs > div { flex: 1; }
 .scale-inputs .vol-input { padding: 10px; font-size: 1rem; }
 .field-label { font-size: 0.8rem; color: var(--text-muted); font-weight: 600; display: block; margin-bottom: 4px; }
+.settings-panel { background: var(--input-bg); padding: 12px; border-radius: 8px; border: 1px solid var(--panel-border); margin: 10px 0 20px; }
+.settings-panel .vol-input { margin-bottom: 6px; }
+.settings-panel .panel-select { padding: 8px; margin-bottom: 12px; font-family: inherit; }
+.modal-content .panel-hint { margin-top: 0; margin-bottom: 12px; }
+.panel-hint a { color: #3b82f6; text-decoration: none; pointer-events: auto; }
+.panel-hint a:hover { text-decoration: underline; }
 #btnApplySettings { width: 100%; height: 44px; font-size: 1rem; margin-top: 10px; }
 
 .loader { display: none; width: 16px; height: 16px; border: 2px solid var(--panel-border); border-radius: 50%; border-top-color: var(--text-main); animation: spin 1s ease-in-out infinite; margin-left: 8px; }
@@ -167,3 +182,13 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helve
 .marker-tag.share-tag { transform: translate(-50%, -100%); top: -17px; padding: 3px 8px; }
 .marker-tag.name-tag { transform: translate(-50%, 0); border-width: 0; padding: 0; }
 .distance-label { transform: translate(-50%, -50%); font-size: 0.8rem; font-weight: 800; white-space: nowrap; pointer-events: none; text-shadow: 0px 0px 4px var(--text-shadow), 0px 0px 4px var(--text-shadow), 1px 1px 2px var(--text-shadow); }
+
+/* ---------- Card reordering & colour picker ---------- */
+.reorder-container { display: flex; flex-direction: column; gap: 2px; pointer-events: auto; margin-right: 4px; }
+.reorder-btn { background: transparent; border: none; color: var(--text-muted); cursor: pointer; padding: 0 4px; display: flex; align-items: center; justify-content: center; transition: color 0.2s; height: 12px; }
+.reorder-btn:hover:not(:disabled) { color: var(--text-main); }
+.reorder-btn:disabled { opacity: 0.25; cursor: default; }
+.color-picker { -webkit-appearance: none; -moz-appearance: none; appearance: none; width: 14px; height: 14px; background: transparent; border: none; cursor: pointer; padding: 0; flex-shrink: 0; pointer-events: auto; margin-top: 2px; }
+.color-picker::-webkit-color-swatch-wrapper { padding: 0; }
+.color-picker::-webkit-color-swatch { border: 1px solid var(--panel-border); border-radius: 4px; }
+.color-picker::-moz-color-swatch { border: 1px solid var(--panel-border); border-radius: 4px; }

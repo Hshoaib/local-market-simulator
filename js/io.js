@@ -172,23 +172,96 @@ function importCsv() {
 
 // --- CSV export ---
 
-function downloadCsv() {
-    const exportData = locations.map(loc => {
-        const rootComp = getRootComp(loc.comp);
-        return {
-            Company: rootComp.alias || rootComp.name,
-            Location: `${loc.lat.toFixed(5)}, ${loc.lng.toFixed(5)}`,
-            Name: loc.name || '',
-            Volume: loc.vol
-        };
-    });
-    const blob = new Blob([Papa.unparse(exportData)], { type: 'text/csv;charset=utf-8;' });
+function saveCsvFile(content, filename) {
+    const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = 'simulator_locations_export.csv';
+    link.download = filename;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
     setTimeout(() => URL.revokeObjectURL(url), 1000); // Give the download time to start
+}
+
+const companyLabel = comp => comp.alias || comp.name;
+const formatLatLng = loc => `${loc.lat.toFixed(5)}, ${loc.lng.toFixed(5)}`;
+
+// Re-importable list of locations (same columns as the CSV import).
+function downloadCsv() {
+    const exportData = locations.map(loc => ({
+        Company: companyLabel(getRootComp(loc.comp)),
+        Location: formatLatLng(loc),
+        Name: loc.name || '',
+        Volume: loc.vol
+    }));
+    saveCsvFile(Papa.unparse(exportData), 'simulator_locations_export.csv');
+}
+
+const DETAILED_CENTROID_COLUMNS = ['Centroid Site ID', 'Centroid Company', 'Centroid Site Name', 'Centroid Location (Lat Lng)', 'Centroid Volume', 'Centroid Status',
+    'Centroid Market Share (%)', 'Centroid Fascia Count', 'Share Alert (Above Threshold)', 'Fascia Alert (Below Threshold)'];
+const DETAILED_NEIGHBOR_COLUMNS = ['Neighbor Site ID', 'Neighbor Company', 'Neighbor Site Name', 'Neighbor Location (Lat Lng)', 'Same Owner',
+    'Straight-line Distance (km)', 'Travel Time (mins)', 'Weight', 'Neighbor Raw Volume', 'Neighbor Weighted Volume'];
+
+// Settings summary followed by one row per (centroid, neighbour) pair inside each catchment.
+function downloadDetailedCsv() {
+    const incomplete = locations.filter(n => n.status !== 'ok').length;
+    if (incomplete > 0 && !confirm(`${incomplete} location(s) have no result yet (travel times pending or no road access) and will be listed without neighbours. Export anyway?`)) return;
+
+    const unit = catchmentUnit();
+    const settingsRows = [
+        ['Simulation Export Settings'],
+        ['Generated', new Date().toLocaleString()],
+        ['Catchment Basis', useTravelTime ? `Travel time (${TRAVEL_MODES[travelMode].label}, OpenRouteService)` : 'Straight-line distance'],
+        ['Catchment Limit', `${catchmentLimit()} ${unit}`],
+        ['Distance Weighting', useDistanceWeighting ? 'Enabled' : 'Disabled'],
+        ['Share Threshold', `${shareThreshold}%`],
+        ['Fascia Threshold', fasciaThreshold],
+        ['Locations Without Result', incomplete]
+    ];
+
+    const rows = [];
+    locations.forEach(target => {
+        const targetComp = getRootComp(target.comp);
+        const ok = target.status === 'ok';
+        const centroid = {
+            'Centroid Site ID': target.id,
+            'Centroid Company': companyLabel(targetComp),
+            'Centroid Site Name': target.name || '',
+            'Centroid Location (Lat Lng)': formatLatLng(target),
+            'Centroid Volume': target.vol,
+            'Centroid Status': target.status,
+            'Centroid Market Share (%)': ok ? target.share.toFixed(1) : '',
+            'Centroid Fascia Count': ok ? target.fasciaCount : '',
+            'Share Alert (Above Threshold)': ok ? String(target.share >= shareThreshold).toUpperCase() : '',
+            'Fascia Alert (Below Threshold)': ok ? String(target.fasciaCount < fasciaThreshold).toUpperCase() : ''
+        };
+        if (!ok) {
+            rows.push(centroid);
+            return;
+        }
+        forEachInCatchment(target, (neighbor, separation, weight) => {
+            const neighborComp = getRootComp(neighbor.comp);
+            rows.push({
+                ...centroid,
+                'Neighbor Site ID': neighbor.id,
+                'Neighbor Company': companyLabel(neighborComp),
+                'Neighbor Site Name': neighbor.name || '',
+                'Neighbor Location (Lat Lng)': formatLatLng(neighbor),
+                'Same Owner': String(neighborComp === targetComp).toUpperCase(),
+                'Straight-line Distance (km)': getDistanceKm(target.lat, target.lng, neighbor.lat, neighbor.lng).toFixed(2),
+                'Travel Time (mins)': useTravelTime ? separation.toFixed(1) : '',
+                'Weight': weight.toFixed(3),
+                'Neighbor Raw Volume': neighbor.vol,
+                'Neighbor Weighted Volume': (weight * neighbor.vol).toFixed(2)
+            });
+        });
+    });
+
+    // Fixed columns, so neighbour columns exist even if no location has a result yet.
+    const columns = [...DETAILED_CENTROID_COLUMNS, ...DETAILED_NEIGHBOR_COLUMNS];
+    const table = Papa.unparse({ fields: columns, data: rows.map(r => columns.map(c => r[c] ?? '')) });
+    const content = `${Papa.unparse(settingsRows)}\r\n\r\n${table}`;
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+    saveCsvFile(content, `Detailed_Matrix_Export_${timestamp}.csv`);
 }

@@ -78,9 +78,20 @@ function moveLocationToCompany(locationId, targetCompId) {
     refresh();
 }
 
+// Moves a company card (with any merged members) one place up (-1) or down (+1).
+function moveCompanyGroup(rootId, direction) {
+    const groups = getGroupedCompanies();
+    const from = groups.findIndex(g => g.root.id === rootId);
+    const to = from + direction;
+    if (from === -1 || to < 0 || to >= groups.length) return;
+    [groups[from], groups[to]] = [groups[to], groups[from]];
+    activeCompanies = groups.flatMap(g => g.members);
+    renderCards();
+}
+
 function updateToolbarDisplay() {
     document.getElementById('warnVal').innerText = calcMode === 'share' ? `${shareThreshold}%` : `${fasciaThreshold}`;
-    document.getElementById('distVal').innerText = `${DMAX}km`;
+    document.getElementById('distVal').innerText = useTravelTime ? `${catchmentMins} mins` : `${catchmentKm}km`;
 }
 
 function setCalcMode(mode) {

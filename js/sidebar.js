@@ -19,25 +19,29 @@ function createButton(className, { html, text, title, onClick }) {
 
 function renderCards() {
     companySidebar.innerHTML = '';
-    getGroupedCompanies().forEach(({ root, members }) => {
-        companySidebar.appendChild(buildCompanyCard(root, members));
+    const groups = getGroupedCompanies();
+    groups.forEach(({ root, members }, index) => {
+        companySidebar.appendChild(buildCompanyCard(root, members, { isFirst: index === 0, isLast: index === groups.length - 1 }));
     });
 }
 
-function buildCompanyCard(root, members) {
+function buildCompanyCard(root, members, position) {
     const card = document.createElement('div');
     card.className = 'company-card';
     card.style.borderTopColor = root.color;
     enableLocationDrop(card, root);
 
-    card.appendChild(buildCardHeader(root, members));
+    card.appendChild(buildCardHeader(card, root, members, position));
 
     const body = document.createElement('div');
     body.className = 'card-body';
     if (root.collapsed) body.style.display = 'none';
 
+    // Rows without a result (pending / no road access) sink to the bottom.
+    const statusRank = n => (n.status === 'ok' ? 0 : 1);
     const groupLocations = members.flatMap(m => locations.filter(n => n.comp === m.id));
-    groupLocations.sort((a, b) => calcMode === 'share' ? b.share - a.share : a.fasciaCount - b.fasciaCount);
+    groupLocations.sort((a, b) => statusRank(a) - statusRank(b)
+        || (calcMode === 'share' ? b.share - a.share : a.fasciaCount - b.fasciaCount));
 
     if (groupLocations.length === 0) {
         const empty = document.createElement('div');
@@ -76,12 +80,24 @@ function enableLocationDrop(card, root) {
     });
 }
 
-function buildCardHeader(root, members) {
+function buildCardHeader(card, root, members, { isFirst, isLast }) {
     const header = document.createElement('div');
     header.className = 'card-header';
 
     const isGroup = members.length > 1;
     const combinedName = root.alias || members.map(m => m.name).join(' + ');
+
+    const headerLeft = document.createElement('div');
+    headerLeft.className = 'card-header-left';
+
+    const reorder = document.createElement('div');
+    reorder.className = 'reorder-container';
+    const upBtn = createButton('reorder-btn', { html: iconChevronUp, title: 'Move up', onClick: () => moveCompanyGroup(root.id, -1) });
+    const downBtn = createButton('reorder-btn', { html: iconChevronDown, title: 'Move down', onClick: () => moveCompanyGroup(root.id, 1) });
+    upBtn.disabled = isFirst;
+    downBtn.disabled = isLast;
+    reorder.append(upBtn, downBtn);
+    headerLeft.appendChild(reorder);
 
     const titleEl = document.createElement('div');
     titleEl.className = 'card-title';
@@ -91,7 +107,24 @@ function buildCardHeader(root, members) {
         e.stopPropagation();
         startRename(titleEl, root, isGroup, combinedName);
     };
-    header.appendChild(titleEl);
+    headerLeft.appendChild(titleEl);
+
+    const colorPicker = document.createElement('input');
+    colorPicker.type = 'color';
+    colorPicker.className = 'color-picker';
+    colorPicker.title = 'Change colour';
+    colorPicker.value = root.color;
+    colorPicker.oninput = (e) => {
+        // Live preview while dragging the picker; the sidebar is rebuilt once it closes.
+        root.color = e.target.value;
+        card.style.borderTopColor = root.color;
+        updateLocationVisuals();
+        drawDistanceLines();
+    };
+    colorPicker.onchange = () => renderCards();
+    headerLeft.appendChild(colorPicker);
+
+    header.appendChild(headerLeft);
 
     const actionsDiv = document.createElement('div');
     actionsDiv.className = 'card-header-actions';
@@ -165,9 +198,11 @@ function buildLocationRow(n, isGroup) {
         <div class="site-id" title="Orig. Co ID: ${n.comp}">${memberDot}#${siteNumber(n.id)}</div>
         <div class="site-name"><input type="text" id="name-${n.id}" class="name-input" placeholder="Name" value="${escapeHtml(n.name || '')}"></div>
         <div class="site-vol"><input type="number" id="vol-${n.id}" class="vol-input" value="${n.vol}" min="0" step="10"></div>
-        <div class="site-share" id="share-${n.id}">${formatMetric(n)}</div>
+        <div class="site-share" id="share-${n.id}"></div>
         <div class="site-warning" id="warn-${n.id}" style="opacity: ${isLocationWarning(n) ? '1' : '0'};" title="Threshold Exceeded">${iconWarning}</div>
     `;
+
+    renderShareCell(row.querySelector('.site-share'), n);
 
     row.onclick = (e) => {
         if (e.target.tagName === 'INPUT' || e.target.closest('button')) return;
@@ -195,11 +230,22 @@ function buildLocationRow(n, isGroup) {
     return row;
 }
 
+const STATUS_HINTS = {
+    pending: 'Travel times not fetched yet: use the refresh button in the toolbar',
+    unroutable: 'No road within ~350 m for this travel mode'
+};
+
+function renderShareCell(el, n) {
+    el.innerText = formatMetric(n);
+    el.classList.toggle('pending', n.status !== 'ok');
+    el.title = STATUS_HINTS[n.status] || '';
+}
+
 // Refreshes the numbers in existing rows without rebuilding the cards (keeps input focus).
 function updateDataDisplays() {
     locations.forEach(n => {
         const shareEl = document.getElementById(`share-${n.id}`);
-        if (shareEl) shareEl.innerText = formatMetric(n);
+        if (shareEl) renderShareCell(shareEl, n);
 
         const warnEl = document.getElementById(`warn-${n.id}`);
         if (warnEl) warnEl.style.opacity = isLocationWarning(n) ? '1' : '0';

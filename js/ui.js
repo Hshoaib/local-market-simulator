@@ -30,6 +30,7 @@ document.getElementById('btnInfo').onclick = () => openModal('infoModal');
 document.getElementById('btnHelp').onclick = () => openModal('helpModal');
 document.getElementById('btnUpload').onclick = () => openModal('uploadModal');
 document.getElementById('btnDownload').onclick = downloadCsv;
+document.getElementById('btnExportDetailed').onclick = downloadDetailedCsv;
 document.getElementById('btnConfirmPostcode').onclick = placePendingLocation;
 document.getElementById('btnProcessCsv').onclick = importCsv;
 
@@ -40,8 +41,21 @@ const settingInputs = {
     maxVol: document.getElementById('settingMaxVol'),
     names: document.getElementById('settingNames'),
     shares: document.getElementById('settingShares'),
-    lightMode: document.getElementById('settingLightMode')
+    markerNumbers: document.getElementById('settingMarkerNumbers'),
+    lightMode: document.getElementById('settingLightMode'),
+    useTravelTime: document.getElementById('settingUseTravelTime'),
+    orsKey: document.getElementById('settingOrsApiKey'),
+    rememberKey: document.getElementById('settingRememberKey'),
+    travelMode: document.getElementById('settingTravelMode'),
+    roadRoutes: document.getElementById('settingRoadRoutes')
 };
+const travelTimeOptions = document.getElementById('travelTimeOptions');
+
+settingInputs.travelMode.innerHTML = Object.entries(TRAVEL_MODES)
+    .map(([value, mode]) => `<option value="${value}">${mode.label}</option>`).join('');
+settingInputs.useTravelTime.addEventListener('change', () => {
+    travelTimeOptions.hidden = !settingInputs.useTravelTime.checked;
+});
 
 document.getElementById('btnSettings').onclick = () => {
     settingInputs.useWeighting.checked = useDistanceWeighting;
@@ -50,6 +64,13 @@ document.getElementById('btnSettings').onclick = () => {
     settingInputs.names.checked = alwaysShowNames;
     settingInputs.shares.checked = alwaysShowShares;
     settingInputs.lightMode.checked = isLightMode;
+    settingInputs.markerNumbers.checked = showMarkerNumbers;
+    settingInputs.useTravelTime.checked = useTravelTime;
+    travelTimeOptions.hidden = !useTravelTime;
+    settingInputs.orsKey.value = orsApiKey;
+    settingInputs.rememberKey.checked = rememberOrsKey;
+    settingInputs.travelMode.value = travelMode;
+    settingInputs.roadRoutes.checked = drawRoadRoutes;
     openModal('settingsModal');
 };
 
@@ -58,6 +79,17 @@ document.getElementById('btnApplySettings').onclick = () => {
     alwaysShowNames = settingInputs.names.checked;
     alwaysShowShares = settingInputs.shares.checked;
     isLightMode = settingInputs.lightMode.checked;
+    showMarkerNumbers = settingInputs.markerNumbers.checked;
+
+    // Travel data is cached per mode and position, so switching needs no invalidation.
+    useTravelTime = settingInputs.useTravelTime.checked;
+    travelMode = settingInputs.travelMode.value;
+    drawRoadRoutes = settingInputs.roadRoutes.checked;
+    catchmentMins = Math.min(catchmentMins, TRAVEL_MODES[travelMode].maxMinutes);
+    orsApiKey = settingInputs.orsKey.value.trim();
+    rememberOrsKey = settingInputs.rememberKey.checked;
+    writeStorage(STORAGE_REMEMBER_KEY, rememberOrsKey ? 'true' : null);
+    writeStorage(STORAGE_ORS_KEY, rememberOrsKey && orsApiKey ? orsApiKey : null);
 
     if (isLightMode) document.documentElement.setAttribute('data-theme', 'light');
     else document.documentElement.removeAttribute('data-theme');
@@ -70,6 +102,7 @@ document.getElementById('btnApplySettings').onclick = () => {
     if (scaleMinVol >= scaleMaxVol) scaleMaxVol = scaleMinVol + 1;
 
     closeModals();
+    updateToolbarDisplay();
     refresh();
 };
 
@@ -146,17 +179,49 @@ function onRadiusChange() {
     updateDataDisplays();
 }
 
-makeHoldable('btnDistMinus', () => {
-    if (DMAX > 1) {
-        DMAX -= 1;
-        onRadiusChange();
+// Steps the active catchment limit: km for straight-line, minutes for travel time.
+function stepCatchment(delta) {
+    if (useTravelTime) {
+        const next = catchmentMins + delta;
+        if (next < 1 || next > TRAVEL_MODES[travelMode].maxMinutes) return;
+        catchmentMins = next;
+    } else {
+        const next = catchmentKm + delta;
+        if (next < 1) return;
+        catchmentKm = next;
     }
-});
-
-makeHoldable('btnDistPlus', () => {
-    DMAX += 1;
     onRadiusChange();
-});
+}
+
+makeHoldable('btnDistMinus', () => stepCatchment(-1));
+makeHoldable('btnDistPlus', () => stepCatchment(1));
+
+// --- Travel-time refresh button ---
+const btnRefreshTravel = document.getElementById('btnRefreshTravel');
+const refreshBadge = document.getElementById('refreshBadge');
+const refreshTooltip = document.getElementById('refreshTooltip');
+btnRefreshTravel.onclick = refreshTravelData;
+
+function updateRefreshButton() {
+    btnRefreshTravel.hidden = !useTravelTime;
+    document.getElementById('refreshDivider').hidden = !useTravelTime;
+    if (!useTravelTime) return;
+
+    const needing = routingRun.active ? 0 : locations.filter(locationNeedsTravelData).length;
+    const count = routingRun.active ? routingRun.remaining : needing;
+    refreshBadge.hidden = count === 0;
+    refreshBadge.innerText = count;
+    refreshBadge.classList.toggle('running', routingRun.active);
+    btnRefreshTravel.classList.toggle('running', routingRun.active);
+
+    if (routingRun.active) {
+        refreshTooltip.innerText = `${routingRun.status} (${routingRun.remaining} requests left) · click to stop`;
+    } else if (!orsApiKey) {
+        refreshTooltip.innerText = 'Add an OpenRouteService key in Settings';
+    } else {
+        refreshTooltip.innerText = needing > 0 ? `Fetch travel times (${needing} location${needing === 1 ? '' : 's'} need updating)` : 'Travel times up to date';
+    }
+}
 
 // --- Map interactions ---
 map.on('click', () => {

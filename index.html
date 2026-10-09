@@ -54,8 +54,23 @@
                 <button class="modal-close"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
                 <h2>Settings</h2>
                 <h3 class="first-heading">Market Dynamics</h3>
-                <label class="toggle-label setting-toggle gap-md"><input type="checkbox" id="settingUseWeighting"> Calculate Market Share using Distance Weighting</label>
-                <p class="hint-text setting-hint">If disabled, market shares are calculated simply as total allied volume divided by total volume within the catchment area, regardless of distance.</p>
+                <label class="toggle-label setting-toggle gap-md"><input type="checkbox" id="settingUseWeighting"> Calculate Market Share using Distance/Time Weighting</label>
+                <p class="hint-text setting-hint">If disabled, market shares are calculated simply as total allied volume divided by total volume within the catchment area, regardless of distance or travel time.</p>
+
+                <h3>Travel-Time Catchments</h3>
+                <label class="toggle-label setting-toggle"><input type="checkbox" id="settingUseTravelTime"> Use drive/walk/cycle time instead of straight-line distance</label>
+                <div id="travelTimeOptions" class="settings-panel" hidden>
+                    <label class="field-label" for="settingOrsApiKey">OpenRouteService API Key</label>
+                    <input type="password" id="settingOrsApiKey" class="vol-input" placeholder="Paste your free key" autocomplete="off" spellcheck="false">
+                    <p class="hint-text panel-hint">Free key from <a href="https://openrouteservice.org/dev/#/signup" target="_blank" rel="noopener">openrouteservice.org</a>. Requests go directly from your browser to OpenRouteService.</p>
+                    <label class="toggle-label setting-toggle"><input type="checkbox" id="settingRememberKey"> Remember key on this device</label>
+
+                    <label class="field-label" for="settingTravelMode">Travel Mode</label>
+                    <select id="settingTravelMode" class="vol-input panel-select"></select>
+
+                    <label class="toggle-label setting-toggle"><input type="checkbox" id="settingRoadRoutes"> Draw road routes for selected locations</label>
+                    <p class="hint-text panel-hint">Travel times use 1 request per batch of locations. Road routes use 1 extra request per pair of locations within a catchment. Free plan: 500 travel-time and 2,000 route requests per day.</p>
+                </div>
 
                 <h3>Node Scaling (Visual)</h3>
                 <p class="hint-text setting-hint tight">Set the volume thresholds that define the minimum (16px) and maximum (80px) size of location nodes on the map.</p>
@@ -67,6 +82,7 @@
                 <h3>Display Options</h3>
                 <label class="toggle-label setting-toggle"><input type="checkbox" id="settingLightMode"> Enable Light Mode Theme</label>
                 <label class="toggle-label setting-toggle"><input type="checkbox" id="settingNames"> Always show Location Names on Map</label>
+                <label class="toggle-label setting-toggle"><input type="checkbox" id="settingMarkerNumbers"> Show Numbers inside Location Circles</label>
                 <label class="toggle-label setting-toggle gap-lg"><input type="checkbox" id="settingShares"> Always show Market Shares on Map</label>
                 <button id="btnApplySettings" class="add-site-btn">Apply Changes</button>
             </div>
@@ -79,16 +95,22 @@
                 <h3>Map & Navigation</h3>
                 <ul>
                     <li><strong>Pan & Zoom:</strong> Click and drag the map, scroll, or use pinch-to-zoom.</li>
-                    <li><strong>Select Locations:</strong> Click a marker to view its catchment radius and distance lines to competitors. Hold <strong>Ctrl/Cmd</strong> to select multiple.</li>
+                    <li><strong>Select Locations:</strong> Click a marker or its sidebar row to view its catchment and the distance (or travel time) to competitors. Hold <strong>Ctrl/Cmd</strong> to select multiple.</li>
                     <li><strong>Centre Map:</strong> Use the crosshair icon in the bottom toolbar to snap back to the starting view.</li>
                 </ul>
                 <h3>Adding & Editing Locations</h3>
                 <ul>
-                    <li><strong>Move Locations:</strong> Drag colored markers directly on the map.</li>
+                    <li><strong>Move Locations:</strong> Drag coloured markers directly on the map.</li>
                     <li><strong>Add via Location:</strong> Click "+ Location" on a company card to place via a UK postcode or Lat/Lng.</li>
                     <li><strong>Import CSV:</strong> Use the upload button to bulk-import locations and volumes.</li>
                     <li><strong>Quick Drop:</strong> Double-click empty map space to instantly drop a new location.</li>
-                    <li><strong>Adjust Volume (Fast):</strong> Hover over any map marker and scroll your mouse wheel to change volume by 10.</li>
+                    <li><strong>Adjust Volume (Fast):</strong> Hover over any map marker and scroll your mouse wheel to change volume by 10, or edit the number in the sidebar.</li>
+                </ul>
+                <h3>Company Cards</h3>
+                <ul>
+                    <li><strong>Rename:</strong> Double-click a company name.</li>
+                    <li><strong>Reorder:</strong> Use the arrows beside the name to move a card up or down.</li>
+                    <li><strong>Colour:</strong> Click the colour swatch beside the name.</li>
                 </ul>
                 <h3>M&A and Remedies</h3>
                 <ul>
@@ -99,8 +121,21 @@
                 <ul>
                     <li><strong>Mode Toggle:</strong> Switch between Market Share (%) and Fascia Count (#) modes. Fascia mode evaluates the number of distinct competitors within the catchment area.</li>
                     <li><strong>Threshold:</strong> Adjust the Safe Harbor threshold. Locations triggering this threshold will flag a warning and pulse red.</li>
-                    <li><strong>Radius (Dmax):</strong> Adjust the maximum catchment distance in Kilometers.</li>
+                    <li><strong>Radius / Time:</strong> Adjust the catchment: kilometres for straight-line distance, or minutes for travel time.</li>
                     <li><strong>Shuffle:</strong> Generate a completely random local market scenario!</li>
+                </ul>
+                <h3>Travel-Time Catchments</h3>
+                <p>By default catchments use straight-line distance. To use real drive, walk or cycle times:</p>
+                <ul>
+                    <li>In <strong>Settings</strong>, tick "Use drive/walk/cycle time" and paste a free OpenRouteService API key.</li>
+                    <li>New or moved locations show <strong>Pending…</strong> (and "?" in the sidebar) until travel times are fetched. Click the <strong>refresh</strong> button at the end of the bottom toolbar; its badge shows how many locations need updating.</li>
+                    <li>Large refreshes are paced to the free plan's per-minute limits. Click the button again to stop; results so far are kept.</li>
+                    <li>Locations with no road within ~350 m for the chosen travel mode show <strong>N/A</strong>.</li>
+                </ul>
+                <h3>Exports</h3>
+                <ul>
+                    <li><strong>Download CSV:</strong> Saves all locations in the import format.</li>
+                    <li><strong>Detailed Matrix:</strong> Saves every location paired with each neighbour in its catchment, with distances, travel times, weights and shares.</li>
                 </ul>
             </div>
         </div>
@@ -111,12 +146,13 @@
                 <h2>The Math of Local Overlap Analysis</h2>
                 <p>In competition economics, authorities evaluate retail mergers by analyzing specific geographic catchments.</p>
                 <h3>1. The Catchment Area (Isochrone)</h3>
-                <p>We define a local market by a Maximum Distance (<strong>Dmax</strong> in Kilometers), representing how far a consumer is willing to travel.</p>
+                <p>We define a local market by a maximum distance (<strong>Dmax</strong> in kilometres) or, with travel-time catchments enabled, a maximum travel time (in minutes), representing how far a consumer is willing to travel.</p>
                 <h3>2. Distance Weighting</h3>
-                <p>Competitors located right next door exert massive pressure, while competitors on the edge of the catchment exert very little. We calculate real-world kilometer distance (d) using the Haversine formula, and weight each store's volume:</p>
+                <p>Competitors located right next door exert massive pressure, while competitors on the edge of the catchment exert very little. We use straight-line distance (d) from the Haversine formula, or the travel time from OpenRouteService, and weight each store's volume:</p>
                 <div class="math-block">Weight = (Dmax - d) / Dmax</div>
+                <p>A store is always 0 distance from itself, so its own volume has full weight.</p>
                 <h3>3. Calculating Market Share</h3>
-                <p>To find a specific location's local market share, we take its volume, add the weighted volume of all allied stores in range, and divide it by the total weighted volume of ALL stores in range.</p>
+                <p>To find a specific location's local market share, we take its volume, add the weighted volume of all allied stores in range, and divide it by the total weighted volume of ALL stores in range. With weighting disabled, every weight is 1.</p>
                 <div class="math-block">Share = Σ(Allied Weighted Vol) / Σ(Total Weighted Vol)</div>
                 <h3>4. Fascia Counting (Alternative Mode)</h3>
                 <p>Instead of calculating volume shares, this mode simply counts the number of distinct corporate entities (fascias) operating within the catchment area, including the target location. Authorities often use "4-to-3" or "3-to-2" fascia reduction screens as an initial indicator of local market concentration.</p>
@@ -134,6 +170,10 @@
         </div>
         <div class="download-btn-container">
             <button class="top-icon-btn" id="btnDownload"><span class="right-tooltip">Download CSV</span><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg></button>
+        </div>
+
+        <div class="export-btn-container">
+            <button class="top-icon-btn" id="btnExportDetailed"><span class="right-tooltip">Detailed Matrix</span><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><path d="M12 18v-6"></path><path d="M9 15l3 3 3-3"></path><path d="M8 11h8"></path></svg></button>
         </div>
 
         <div class="company-sidebar" id="companySidebar"></div>
@@ -168,13 +208,19 @@
             </div>
             <div class="divider"></div>
             <div class="tool-group">
-                <span class="custom-tooltip">Radius</span>
+                <span class="custom-tooltip">Radius / Time</span>
                 <button class="icon-btn step-btn" id="btnDistMinus">-</button>
                 <div class="toolbar-label"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><path d="M12 12l5.3-5.3"></path><path d="M17 12v-5h-5"></path></svg><span id="distVal">10km</span></div>
                 <button class="icon-btn step-btn" id="btnDistPlus">+</button>
             </div>
             <div class="divider"></div>
             <button class="icon-btn needs-attention" id="btnShuffle"><span class="custom-tooltip">Shuffle</span><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 3 21 3 21 8"></polyline><line x1="4" y1="20" x2="21" y2="3"></line><polyline points="21 16 21 21 16 21"></polyline><line x1="15" y1="15" x2="21" y2="21"></line><line x1="4" y1="4" x2="9" y2="9"></line></svg></button>
+            <div class="divider" id="refreshDivider" hidden></div>
+            <button class="icon-btn" id="btnRefreshTravel" hidden>
+                <span class="custom-tooltip" id="refreshTooltip">Fetch travel times</span>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2v6h-6"></path><path d="M3 12a9 9 0 0 1 15-6.7L21 8"></path><path d="M3 22v-6h6"></path><path d="M21 12a9 9 0 0 1-15 6.7L3 16"></path></svg>
+                <span class="refresh-badge" id="refreshBadge" hidden></span>
+            </button>
         </div>
 
         <div id="map"></div>
@@ -186,6 +232,7 @@
 <script src="js/config.js"></script>
 <script src="js/state.js"></script>
 <script src="js/calc.js"></script>
+<script src="js/routing.js"></script>
 <script src="js/map.js"></script>
 <script src="js/sidebar.js"></script>
 <script src="js/actions.js"></script>

@@ -1,15 +1,17 @@
-// --- Leaflet map: markers, catchment circles and distance lines ---
+// --- Leaflet map: markers, catchment shapes and distance lines ---
 
 const map = L.map('map', { zoomControl: false, doubleClickZoom: false }).setView([START_LAT, START_LNG], START_ZOOM);
 const tileLayer = L.tileLayer(TILE_URL_DARK, {
     maxZoom: 19,
-    attribution: '&copy; <a href="https://carto.com/attributions">CARTO</a>'
+    attribution: '&copy; <a href="https://carto.com/attributions">CARTO</a> &middot; Routing &copy; <a href="https://openrouteservice.org">openrouteservice</a>'
 }).addTo(map);
 L.control.zoom({ position: 'bottomright' }).addTo(map);
 
-let mapCircles = {};
 let mapMarkers = {};
+let mapCatchments = {}; // id -> { key, layer }: a radius circle, an isochrone polygon, or a pending placeholder
 let mapLines = [];
+
+const HIDDEN_STYLE = { opacity: 0, fillOpacity: 0, weight: 1 };
 
 function setMapTheme(light) {
     tileLayer.setUrl(light ? TILE_URL_LIGHT : TILE_URL_DARK);
@@ -20,9 +22,9 @@ function removeLocationLayers(locationId) {
         map.removeLayer(mapMarkers[locationId]);
         delete mapMarkers[locationId];
     }
-    if (mapCircles[locationId]) {
-        map.removeLayer(mapCircles[locationId]);
-        delete mapCircles[locationId];
+    if (mapCatchments[locationId]) {
+        map.removeLayer(mapCatchments[locationId].layer);
+        delete mapCatchments[locationId];
     }
 }
 
@@ -33,9 +35,9 @@ function clearDistanceLines() {
 
 function clearMapLayers() {
     Object.values(mapMarkers).forEach(m => map.removeLayer(m));
-    Object.values(mapCircles).forEach(c => map.removeLayer(c));
+    Object.values(mapCatchments).forEach(c => map.removeLayer(c.layer));
     mapMarkers = {};
-    mapCircles = {};
+    mapCatchments = {};
     clearDistanceLines();
 }
 
@@ -45,8 +47,38 @@ function getMarkerSize(vol, isSelected) {
     return isSelected ? size + 6 : size;
 }
 
+// Creates or swaps the location's catchment layer when the kind of shape it needs changes.
+function syncCatchmentLayer(loc) {
+    let key = 'circle';
+    let isochrone = null;
+    if (useTravelTime) {
+        isochrone = getIsochrone(loc);
+        key = isochrone ? isochroneKey(pointKey(loc)) : 'placeholder';
+    }
+
+    const current = mapCatchments[loc.id];
+    if (current && current.key === key) {
+        if (!isochrone) current.layer.setLatLng([loc.lat, loc.lng]);
+        return;
+    }
+    if (current) map.removeLayer(current.layer);
+
+    const layer = isochrone
+        ? L.geoJSON(isochrone, { interactive: false, style: HIDDEN_STYLE })
+        : L.circle([loc.lat, loc.lng], { radius: key === 'circle' ? catchmentKm * 1000 : PLACEHOLDER_CATCHMENT_M, interactive: false, ...HIDDEN_STYLE });
+    mapCatchments[loc.id] = { key, layer: layer.addTo(map) };
+}
+
+// Middle vertex of a route, so the label sits on the road rather than the straight midpoint.
+function routeMidpoint(geometry) {
+    const coords = geometry.coordinates;
+    const [lng, lat] = coords[Math.floor(coords.length / 2)];
+    return [lat, lng];
+}
+
 function drawDistanceLines() {
     clearDistanceLines();
+    const limit = catchmentLimit();
 
     activeLocationIds.forEach(activeId => {
         const active = findLocation(activeId);
@@ -54,17 +86,27 @@ function drawDistanceLines() {
 
         locations.forEach(neighbor => {
             if (neighbor.id === activeId) return;
-            const distKm = getDistanceKm(active.lat, active.lng, neighbor.lat, neighbor.lng);
-            if (distKm > DMAX) return;
+            const separation = getSeparation(active, neighbor);
+            if (separation === undefined || separation > limit) return;
 
             const compColor = getRootComp(neighbor.comp).color;
-            mapLines.push(L.polyline([[active.lat, active.lng], [neighbor.lat, neighbor.lng]], {
-                color: compColor, weight: 2.5, opacity: 0.6, dashArray: '4, 8', interactive: false
-            }).addTo(map));
+            const geometry = useTravelTime && drawRoadRoutes ? getRouteGeometry(active, neighbor) : null;
+            let midpoint;
+            if (geometry) {
+                mapLines.push(L.geoJSON(geometry, {
+                    interactive: false, style: { color: compColor, weight: 3.5, opacity: 0.8, dashArray: '5, 10' }
+                }).addTo(map));
+                midpoint = routeMidpoint(geometry);
+            } else {
+                mapLines.push(L.polyline([[active.lat, active.lng], [neighbor.lat, neighbor.lng]], {
+                    color: compColor, weight: 2.5, opacity: 0.6, dashArray: '4, 8', interactive: false
+                }).addTo(map));
+                midpoint = [(active.lat + neighbor.lat) / 2, (active.lng + neighbor.lng) / 2];
+            }
 
-            const midpoint = [(active.lat + neighbor.lat) / 2, (active.lng + neighbor.lng) / 2];
+            const label = useTravelTime ? `${separation.toFixed(1)} mins` : `${separation.toFixed(2)} km`;
             const labelIcon = L.divIcon({
-                html: `<div class="distance-label" style="color: ${compColor};">${distKm.toFixed(2)} km</div>`,
+                html: `<div class="distance-label" style="color: ${compColor};">${label}</div>`,
                 className: '',
                 iconSize: [0, 0]
             });
@@ -78,12 +120,16 @@ function updateLocationVisuals() {
         const nRoot = getRootComp(n.comp);
         const isWarn = isLocationWarning(n);
         const isSel = activeLocationIds.includes(n.id);
-        const cColor = isWarn ? WARNING_COLOR : nRoot.color;
 
-        const circle = mapCircles[n.id];
-        if (circle) {
-            circle.setRadius(DMAX * 1000);
-            circle.setStyle({ color: cColor, fillColor: cColor, opacity: isSel ? 1 : 0, fillOpacity: isSel ? (isWarn ? 0.2 : 0.08) : 0, weight: isWarn ? 2 : 1 });
+        const catchment = mapCatchments[n.id];
+        if (catchment) {
+            const isPlaceholder = catchment.key === 'placeholder';
+            const cColor = isWarn ? WARNING_COLOR : (isPlaceholder ? '#94a3b8' : nRoot.color);
+            if (catchment.key === 'circle') catchment.layer.setRadius(catchmentKm * 1000);
+            catchment.layer.setStyle({
+                color: cColor, fillColor: cColor, opacity: isSel ? 1 : 0, fillOpacity: isSel ? (isWarn ? 0.2 : 0.08) : 0,
+                weight: isWarn ? 2 : 1, dashArray: isPlaceholder ? '5, 5' : null
+            });
         }
 
         const coreEl = document.getElementById(`core-${n.id}`);
@@ -95,14 +141,16 @@ function updateLocationVisuals() {
         coreEl.style.backgroundColor = nRoot.color;
         coreEl.style.border = `${isSel ? 3 : 2}px solid ${isWarn ? WARNING_COLOR : 'var(--marker-border)'}`;
         coreEl.style.boxShadow = `0 0 10px ${isWarn ? WARNING_COLOR : nRoot.color}`;
-        coreEl.innerText = siteNumber(n.id);
+        coreEl.innerText = showMarkerNumbers ? siteNumber(n.id) : '';
 
         const tagEl = document.getElementById(`sharetag-${n.id}`);
         if (tagEl) {
-            tagEl.innerText = formatMetric(n, ' Share');
+            const isOk = n.status === 'ok';
+            tagEl.innerText = formatMetric(n, true);
             tagEl.style.opacity = (isSel || alwaysShowShares) ? '1' : '0';
             tagEl.style.top = `-${nSize / 2 + 6}px`;
-            tagEl.style.borderColor = nRoot.color;
+            tagEl.style.borderColor = isOk ? nRoot.color : PENDING_COLOR;
+            tagEl.style.color = isOk ? '' : PENDING_COLOR;
         }
 
         const nameTagEl = document.getElementById(`nametag-${n.id}`);
@@ -117,19 +165,15 @@ function updateLocationVisuals() {
             nameTagEl.style.borderColor = nRoot.color;
         }
     });
+
+    updateRefreshButton();
 }
 
-function createLocationLayers(loc) {
-    const rootColor = getRootComp(loc.comp).color;
-
-    mapCircles[loc.id] = L.circle([loc.lat, loc.lng], {
-        radius: DMAX * 1000, color: rootColor, fillColor: rootColor, opacity: 0, fillOpacity: 0, weight: 1, interactive: false
-    }).addTo(map);
-
+function createMarker(loc) {
     // Colours, sizes and labels are filled in by updateLocationVisuals().
     const html = `
         <div class="marker-anchor">
-            <div id="core-${loc.id}" class="marker-core">${siteNumber(loc.id)}</div>
+            <div id="core-${loc.id}" class="marker-core"></div>
             <div id="sharetag-${loc.id}" class="marker-tag share-tag"></div>
             <div id="nametag-${loc.id}" class="marker-tag name-tag"></div>
         </div>`;
@@ -171,8 +215,8 @@ function createLocationLayers(loc) {
         const pos = e.target.getLatLng();
         live.lat = pos.lat;
         live.lng = pos.lng;
-        mapCircles[loc.id].setLatLng(pos);
         calculateShares();
+        syncCatchmentLayer(live);
         updateDataDisplays();
         updateLocationVisuals();
         drawDistanceLines();
@@ -197,12 +241,9 @@ function draw() {
     });
 
     locations.forEach(loc => {
-        if (!mapMarkers[loc.id]) {
-            createLocationLayers(loc);
-        } else {
-            mapMarkers[loc.id].setLatLng([loc.lat, loc.lng]);
-            mapCircles[loc.id].setLatLng([loc.lat, loc.lng]);
-        }
+        if (!mapMarkers[loc.id]) createMarker(loc);
+        else mapMarkers[loc.id].setLatLng([loc.lat, loc.lng]);
+        syncCatchmentLayer(loc);
     });
 
     updateLocationVisuals();
