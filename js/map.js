@@ -23,7 +23,7 @@ function removeLocationLayers(locationId) {
         delete mapMarkers[locationId];
     }
     if (mapCatchments[locationId]) {
-        map.removeLayer(mapCatchments[locationId].layer);
+        if (mapCatchments[locationId].layer) map.removeLayer(mapCatchments[locationId].layer);
         delete mapCatchments[locationId];
     }
 }
@@ -35,7 +35,7 @@ function clearDistanceLines() {
 
 function clearMapLayers() {
     Object.values(mapMarkers).forEach(m => map.removeLayer(m));
-    Object.values(mapCatchments).forEach(c => map.removeLayer(c.layer));
+    Object.values(mapCatchments).forEach(c => c.layer && map.removeLayer(c.layer));
     mapMarkers = {};
     mapCatchments = {};
     clearDistanceLines();
@@ -48,20 +48,25 @@ function getMarkerSize(vol, isSelected) {
 }
 
 // Creates or swaps the location's catchment layer when the kind of shape it needs changes.
+// Travel-time catchments beyond the outline limit have no shape at all.
 function syncCatchmentLayer(loc) {
     let key = 'circle';
     let isochrone = null;
     if (useTravelTime) {
         isochrone = getIsochrone(loc);
-        key = isochrone ? isochroneKey(pointKey(loc)) : 'placeholder';
+        key = isochrone ? isochroneKey(pointKey(loc)) : (outlineAvailable() ? 'placeholder' : 'none');
     }
 
     const current = mapCatchments[loc.id];
     if (current && current.key === key) {
-        if (!isochrone) current.layer.setLatLng([loc.lat, loc.lng]);
+        if (current.layer && !isochrone) current.layer.setLatLng([loc.lat, loc.lng]);
         return;
     }
-    if (current) map.removeLayer(current.layer);
+    if (current && current.layer) map.removeLayer(current.layer);
+    if (key === 'none') {
+        mapCatchments[loc.id] = { key, layer: null };
+        return;
+    }
 
     const layer = isochrone
         ? L.geoJSON(isochrone, { interactive: false, style: HIDDEN_STYLE })
@@ -122,7 +127,7 @@ function updateLocationVisuals() {
         const isSel = activeLocationIds.includes(n.id);
 
         const catchment = mapCatchments[n.id];
-        if (catchment) {
+        if (catchment && catchment.layer) {
             const isPlaceholder = catchment.key === 'placeholder';
             const cColor = isWarn ? WARNING_COLOR : (isPlaceholder ? '#94a3b8' : nRoot.color);
             if (catchment.key === 'circle') catchment.layer.setRadius(catchmentKm * 1000);

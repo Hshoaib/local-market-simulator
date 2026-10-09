@@ -223,6 +223,8 @@ function updateRefreshButton() {
         refreshTooltip.innerText = `Fetch travel times (${needing} location${needing === 1 ? '' : 's'} need updating)`;
     } else if (hasMissingTravelVisuals()) {
         refreshTooltip.innerText = `Results up to date · click to load ${drawRoadRoutes ? 'outlines and road routes' : 'catchment outlines'}`;
+    } else if (!outlineAvailable()) {
+        refreshTooltip.innerText = `Travel times up to date · outlines can only be drawn up to ${TRAVEL_MODES[travelMode].maxOutlineMinutes} mins for this mode`;
     } else {
         refreshTooltip.innerText = 'Travel times up to date';
     }

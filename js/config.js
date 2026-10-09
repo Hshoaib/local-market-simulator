@@ -25,17 +25,20 @@ const ORS_BASE_URL = 'https://api.openrouteservice.org/v2';
 const STORAGE_REMEMBER_KEY = 'sim_remember_keys';
 const STORAGE_ORS_KEY = 'sim_ors_key';
 
-// maxSpeedKmh is a generous upper bound: road distance is never shorter than straight-line
-// distance, so pairs further apart than speed x time can be ruled out without an API call.
+// Largest travel-time catchment. Travel times are fetched for every pair reachable within
+// this, so changing the limit never needs new times.
+const MAX_CATCHMENT_MINUTES = 180;
+
+// maxSpeedKmh is an upper bound on modelled speed (ORS uses road speed limits; UK max 70 mph).
+// Road distance is never shorter than straight-line distance, so pairs further apart than
+// speed x time can't be in the catchment and are skipped without an API call.
+// maxOutlineMinutes is the largest catchment outline (isochrone) ORS will draw for the mode.
 const TRAVEL_MODES = {
-    'driving-car': { label: 'Driving (Car)', maxSpeedKmh: 160 },
-    'driving-hgv': { label: 'Driving (HGV)', maxSpeedKmh: 110 },
-    'cycling-regular': { label: 'Cycling (Regular)', maxSpeedKmh: 45 },
-    'foot-walking': { label: 'Walking (Pedestrian)', maxSpeedKmh: 10 }
+    'driving-car': { label: 'Driving (Car)', maxSpeedKmh: 130, maxOutlineMinutes: 60 },
+    'driving-hgv': { label: 'Driving (HGV)', maxSpeedKmh: 110, maxOutlineMinutes: 60 },
+    'cycling-regular': { label: 'Cycling (Regular)', maxSpeedKmh: 45, maxOutlineMinutes: MAX_CATCHMENT_MINUTES },
+    'foot-walking': { label: 'Walking (Pedestrian)', maxSpeedKmh: 10, maxOutlineMinutes: MAX_CATCHMENT_MINUTES }
 };
-// Largest travel-time catchment (also the ORS isochrone limit for driving). Travel times are
-// fetched for every pair reachable within this, so changing the limit never needs new times.
-const MAX_CATCHMENT_MINUTES = 60;
 
 // Free "Standard" plan limits: requests per minute (kept just under) and per day.
 const ORS_RATE_LIMITS = { matrix: 38, isochrones: 18, directions: 38 };

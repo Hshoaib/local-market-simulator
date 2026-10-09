@@ -65,7 +65,13 @@ function uniqueRoutablePoints(mode) {
     return [...keys];
 }
 
+// ORS can't draw outlines beyond maxOutlineMinutes (60 for driving); results still work.
+function outlineAvailable(mode = travelMode, mins = catchmentMins) {
+    return mins <= TRAVEL_MODES[mode].maxOutlineMinutes;
+}
+
 function missingIsochrones(keys, mode, mins) {
+    if (!outlineAvailable(mode, mins)) return [];
     return keys.filter(k => !isochroneCache.has(isochroneKey(k, mode, mins)));
 }
 
@@ -253,15 +259,16 @@ const isPointError = err => err instanceof RoutingError && [400, 404, 500].inclu
 
 // The current limit plus its neighbours (up to ORS_ISOCHRONE_MAX_RANGES), so stepping the
 // limit a few minutes either way reuses outlines from the same request.
-function isochroneRanges(mins) {
-    const count = Math.min(ORS_ISOCHRONE_MAX_RANGES, MAX_CATCHMENT_MINUTES);
-    const start = Math.max(1, Math.min(mins - 4, MAX_CATCHMENT_MINUTES - count + 1));
+function isochroneRanges(mins, mode) {
+    const max = TRAVEL_MODES[mode].maxOutlineMinutes;
+    const count = Math.min(ORS_ISOCHRONE_MAX_RANGES, max);
+    const start = Math.max(1, Math.min(mins - 4, max - count + 1));
     return Array.from({ length: count }, (_, i) => start + i);
 }
 
 async function fetchIsochrones(keys, mode, mins) {
     try {
-        const ranges = isochroneRanges(mins);
+        const ranges = isochroneRanges(mins, mode);
         const data = await orsPost('isochrones', `isochrones/${mode}`, { locations: keys.map(keyToLngLat), range: ranges.map(m => m * 60), range_type: 'time' });
         data.features.forEach(feature => {
             const key = keys[feature.properties.group_index];

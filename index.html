@@ -129,7 +129,9 @@
                 <ul>
                     <li>In <strong>Settings</strong>, tick "Use drive/walk/cycle time" and paste a free OpenRouteService API key.</li>
                     <li>New, moved or imported locations (and all locations after switching travel mode) show <strong>Pending…</strong> (and "?" in the sidebar) until travel times are fetched. Click the <strong>refresh</strong> button at the end of the bottom toolbar; its badge shows how many locations need updating.</li>
-                    <li>Changing the time limit (up to 60 minutes) reuses travel times already fetched, so results update instantly. Catchment outlines are fetched for nearby limits too; if one isn't loaded yet, a selected location shows a dashed circle until the next refresh.</li>
+                    <li>Changing the time limit (up to 180 minutes) reuses travel times already fetched, so results update instantly. Catchment outlines are fetched for nearby limits too; if one isn't loaded yet, a selected location shows a dashed circle until the next refresh.</li>
+                    <li>OpenRouteService can only draw driving outlines up to 60 minutes. Above that, shares, distance lines and exports still use real drive times, but no outline is shown.</li>
+                    <li>Pairs of locations too far apart to be reachable within the limit (based on straight-line distance and the fastest possible speed for the mode) are skipped without using any requests.</li>
                     <li>Large refreshes are paced to the free plan's per-minute limits. Click the button again to stop; results so far are kept.</li>
                     <li>Locations with no road within ~350 m for the chosen travel mode show <strong>N/A</strong>.</li>
                 </ul>
