@@ -17,7 +17,8 @@ const MARKER_MIN_PX = 16;
 const MARKER_MAX_PX = 80;
 const GEOCODE_BATCH_SIZE = 100;
 const PENDING_COLOR = '#fbbf24';
-const PLACEHOLDER_CATCHMENT_M = 300; // Dashed circle shown while a travel-time catchment is pending
+const PLACEHOLDER_CATCHMENT_M = 300; // Dashed circle shown while a travel-time catchment outline isn't loaded
+const NUDGE_TOLERANCE_PX = 6;        // Marker drags shorter than this snap back (accidental nudge while clicking)
 
 // --- Travel-time routing (OpenRouteService; each visitor supplies their own free key) ---
 const ORS_BASE_URL = 'https://api.openrouteservice.org/v2';
@@ -26,19 +27,22 @@ const STORAGE_ORS_KEY = 'sim_ors_key';
 
 // maxSpeedKmh is a generous upper bound: road distance is never shorter than straight-line
 // distance, so pairs further apart than speed x time can be ruled out without an API call.
-// maxMinutes is the ORS isochrone limit for the profile.
 const TRAVEL_MODES = {
-    'driving-car': { label: 'Driving (Car)', maxSpeedKmh: 160, maxMinutes: 60 },
-    'driving-hgv': { label: 'Driving (HGV)', maxSpeedKmh: 110, maxMinutes: 60 },
-    'cycling-regular': { label: 'Cycling (Regular)', maxSpeedKmh: 45, maxMinutes: 300 },
-    'foot-walking': { label: 'Walking (Pedestrian)', maxSpeedKmh: 10, maxMinutes: 1200 }
+    'driving-car': { label: 'Driving (Car)', maxSpeedKmh: 160 },
+    'driving-hgv': { label: 'Driving (HGV)', maxSpeedKmh: 110 },
+    'cycling-regular': { label: 'Cycling (Regular)', maxSpeedKmh: 45 },
+    'foot-walking': { label: 'Walking (Pedestrian)', maxSpeedKmh: 10 }
 };
+// Largest travel-time catchment (also the ORS isochrone limit for driving). Travel times are
+// fetched for every pair reachable within this, so changing the limit never needs new times.
+const MAX_CATCHMENT_MINUTES = 60;
 
 // Free "Standard" plan limits: requests per minute (kept just under) and per day.
 const ORS_RATE_LIMITS = { matrix: 38, isochrones: 18, directions: 38 };
 const ORS_DAILY_LIMITS = { matrix: 500, isochrones: 500, directions: 2000 };
 const ORS_MATRIX_MAX_ROUTES = 3500;       // sources x destinations per request
 const ORS_ISOCHRONE_MAX_LOCATIONS = 5;    // locations per request
+const ORS_ISOCHRONE_MAX_RANGES = 10;      // time ranges per request
 
 const companyColors = ['#3b82f6', '#ef4444', '#22c55e', '#f59e0b', '#a855f7', '#06b6d4', '#f43f5e', '#6366f1', '#f97316', '#14b8a6'];
 const fakeNames = ['Aperture Sci.', 'Stark Ind.', 'SprawlMart', 'Buy n Large', 'Initech', 'Soylent Corp', 'Globex', 'Umbrella Corp', 'Acme Corp.', 'Wayne Ent.'];

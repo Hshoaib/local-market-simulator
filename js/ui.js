@@ -85,7 +85,6 @@ document.getElementById('btnApplySettings').onclick = () => {
     useTravelTime = settingInputs.useTravelTime.checked;
     travelMode = settingInputs.travelMode.value;
     drawRoadRoutes = settingInputs.roadRoutes.checked;
-    catchmentMins = Math.min(catchmentMins, TRAVEL_MODES[travelMode].maxMinutes);
     orsApiKey = settingInputs.orsKey.value.trim();
     rememberOrsKey = settingInputs.rememberKey.checked;
     writeStorage(STORAGE_REMEMBER_KEY, rememberOrsKey ? 'true' : null);
@@ -183,7 +182,7 @@ function onRadiusChange() {
 function stepCatchment(delta) {
     if (useTravelTime) {
         const next = catchmentMins + delta;
-        if (next < 1 || next > TRAVEL_MODES[travelMode].maxMinutes) return;
+        if (next < 1 || next > MAX_CATCHMENT_MINUTES) return;
         catchmentMins = next;
     } else {
         const next = catchmentKm + delta;
@@ -207,7 +206,9 @@ function updateRefreshButton() {
     document.getElementById('refreshDivider').hidden = !useTravelTime;
     if (!useTravelTime) return;
 
-    const needing = routingRun.active ? 0 : locations.filter(locationNeedsTravelData).length;
+    // The badge only counts locations whose results are waiting on travel times; missing
+    // outlines or road routes don't change results, so they only show in the tooltip.
+    const needing = routingRun.active ? 0 : locations.filter(locationNeedsTravelTimes).length;
     const count = routingRun.active ? routingRun.remaining : needing;
     refreshBadge.hidden = count === 0;
     refreshBadge.innerText = count;
@@ -218,8 +219,12 @@ function updateRefreshButton() {
         refreshTooltip.innerText = `${routingRun.status} (${routingRun.remaining} requests left) · click to stop`;
     } else if (!orsApiKey) {
         refreshTooltip.innerText = 'Add an OpenRouteService key in Settings';
+    } else if (needing > 0) {
+        refreshTooltip.innerText = `Fetch travel times (${needing} location${needing === 1 ? '' : 's'} need updating)`;
+    } else if (hasMissingTravelVisuals()) {
+        refreshTooltip.innerText = `Results up to date · click to load ${drawRoadRoutes ? 'outlines and road routes' : 'catchment outlines'}`;
     } else {
-        refreshTooltip.innerText = needing > 0 ? `Fetch travel times (${needing} location${needing === 1 ? '' : 's'} need updating)` : 'Travel times up to date';
+        refreshTooltip.innerText = 'Travel times up to date';
     }
 }
 

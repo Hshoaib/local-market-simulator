@@ -69,8 +69,10 @@ function missingIsochrones(keys, mode, mins) {
     return keys.filter(k => !isochroneCache.has(isochroneKey(k, mode, mins)));
 }
 
-function missingTravelPairs(keys, mode, mins) {
-    const reach = maxReachKm(mode, mins);
+// Every pair that could be within the largest allowed limit, so changing the limit later
+// never leaves results waiting on new travel times.
+function missingTravelPairs(keys, mode) {
+    const reach = maxReachKm(mode, MAX_CATCHMENT_MINUTES);
     const coords = keys.map(keyToLngLat);
     const pairs = [];
     keys.forEach((from, i) => {
@@ -96,15 +98,18 @@ function missingRoutes(keys, mode, mins) {
     return pairs;
 }
 
-function locationNeedsTravelData(loc) {
-    if (!useTravelTime || isUnroutable(loc)) return false;
-    if (loc.status === 'pending' || !getIsochrone(loc)) return true;
-    if (!drawRoadRoutes) return false;
-    return locations.some(other => {
-        if (other === loc) return false;
-        const mins = getTravelMinutes(loc, other);
-        return mins !== undefined && mins <= catchmentMins && pointKey(loc) !== pointKey(other) && getRouteGeometry(loc, other) === undefined;
-    });
+// Only missing travel times change results, so only they flag a location as needing an update
+// (after adding, moving or importing locations, or switching travel mode).
+function locationNeedsTravelTimes(loc) {
+    return useTravelTime && loc.status === 'pending';
+}
+
+// Catchment outlines and road routes are display-only; they load on the next refresh.
+function hasMissingTravelVisuals() {
+    if (!useTravelTime) return false;
+    const keys = uniqueRoutablePoints(travelMode);
+    return missingIsochrones(keys, travelMode, catchmentMins).length > 0
+        || (drawRoadRoutes && missingRoutes(keys, travelMode, catchmentMins).length > 0);
 }
 
 // Covers the missing (from, to) pairs with as few matrix requests as possible: repeatedly take
@@ -246,12 +251,22 @@ async function orsPost(endpoint, path, body) {
 // ORS answers 4xx/500 when a point has no road within ~350 m for the travel mode.
 const isPointError = err => err instanceof RoutingError && [400, 404, 500].includes(err.status);
 
+// The current limit plus its neighbours (up to ORS_ISOCHRONE_MAX_RANGES), so stepping the
+// limit a few minutes either way reuses outlines from the same request.
+function isochroneRanges(mins) {
+    const count = Math.min(ORS_ISOCHRONE_MAX_RANGES, MAX_CATCHMENT_MINUTES);
+    const start = Math.max(1, Math.min(mins - 4, MAX_CATCHMENT_MINUTES - count + 1));
+    return Array.from({ length: count }, (_, i) => start + i);
+}
+
 async function fetchIsochrones(keys, mode, mins) {
     try {
-        const data = await orsPost('isochrones', `isochrones/${mode}`, { locations: keys.map(keyToLngLat), range: [mins * 60], range_type: 'time' });
+        const ranges = isochroneRanges(mins);
+        const data = await orsPost('isochrones', `isochrones/${mode}`, { locations: keys.map(keyToLngLat), range: ranges.map(m => m * 60), range_type: 'time' });
         data.features.forEach(feature => {
             const key = keys[feature.properties.group_index];
-            if (key) isochroneCache.set(isochroneKey(key, mode, mins), feature);
+            const minutes = Math.round(feature.properties.value / 60);
+            if (key) isochroneCache.set(isochroneKey(key, mode, minutes), feature);
         });
     } catch (err) {
         if (!isPointError(err)) throw err;
@@ -318,7 +333,7 @@ async function refreshTravelData() {
     const isoBatches = [];
     const isoNeeded = missingIsochrones(uniqueRoutablePoints(mode), mode, mins);
     for (let i = 0; i < isoNeeded.length; i += ORS_ISOCHRONE_MAX_LOCATIONS) isoBatches.push(isoNeeded.slice(i, i + ORS_ISOCHRONE_MAX_LOCATIONS));
-    const matrixEstimate = planMatrixRequests(missingTravelPairs(uniqueRoutablePoints(mode), mode, mins)).length;
+    const matrixEstimate = planMatrixRequests(missingTravelPairs(uniqueRoutablePoints(mode), mode)).length;
     if (isoBatches.length + matrixEstimate === 0 && !drawRoadRoutes) return;
 
     const counts = { isochrones: isoBatches.length, matrix: matrixEstimate };
@@ -345,7 +360,7 @@ async function refreshTravelData() {
         refresh();
 
         // Re-plan now that unroutable points are known, so they're left out of the matrix.
-        const matrixRequests = planMatrixRequests(missingTravelPairs(uniqueRoutablePoints(mode), mode, mins));
+        const matrixRequests = planMatrixRequests(missingTravelPairs(uniqueRoutablePoints(mode), mode));
         setRoutingProgress({ remaining: matrixRequests.length });
         for (const request of matrixRequests) {
             await fetchMatrix(request, mode);

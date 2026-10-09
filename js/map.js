@@ -202,7 +202,9 @@ function createMarker(loc) {
         toggleSelection(loc.id, e.originalEvent.ctrlKey || e.originalEvent.metaKey);
     });
 
+    let dragStart = null;
     marker.on('dragstart', () => {
+        dragStart = L.latLng(loc.lat, loc.lng);
         if (!activeLocationIds.includes(loc.id)) activeLocationIds = [loc.id];
         renderCards();
         updateLocationVisuals();
@@ -225,7 +227,13 @@ function createMarker(loc) {
     marker.on('dragend', (e) => {
         const live = getLive();
         if (!live) return;
-        const pos = e.target.getLatLng();
+        let pos = e.target.getLatLng();
+        // A few pixels of movement while clicking isn't a real move: snap back so the
+        // location keeps its position (and any travel times already fetched for it).
+        if (dragStart && map.latLngToContainerPoint(dragStart).distanceTo(map.latLngToContainerPoint(pos)) < NUDGE_TOLERANCE_PX) {
+            pos = dragStart;
+            marker.setLatLng(pos);
+        }
         live.lat = pos.lat;
         live.lng = pos.lng;
         calculateShares();
