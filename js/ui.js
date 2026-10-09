@@ -47,9 +47,52 @@ const settingInputs = {
     orsKey: document.getElementById('settingOrsApiKey'),
     rememberKey: document.getElementById('settingRememberKey'),
     travelMode: document.getElementById('settingTravelMode'),
-    roadRoutes: document.getElementById('settingRoadRoutes')
+    roadRoutes: document.getElementById('settingRoadRoutes'),
+    pairCutoff: document.getElementById('settingPairCutoff')
 };
 const travelTimeOptions = document.getElementById('travelTimeOptions');
+const pairCutoffHint = document.getElementById('pairCutoffHint');
+
+// Cut-offs edited in the dialog, per mode, applied only on "Apply Changes".
+let draftPairCutoffKm = {};
+let draftMode = travelMode;
+
+function readCutoffInput() {
+    const value = parseFloat(settingInputs.pairCutoff.value);
+    return isNaN(value) ? null : Math.min(MAX_PAIR_CUTOFF_KM, Math.max(1, value));
+}
+
+function showCutoffForMode(mode) {
+    draftMode = mode;
+    settingInputs.pairCutoff.value = draftPairCutoffKm[mode];
+    updateCutoffHint();
+}
+
+function updateCutoffHint() {
+    const km = readCutoffInput();
+    if (km === null) {
+        pairCutoffHint.innerText = 'Enter a distance in km.';
+        return;
+    }
+    const exampleMins = Math.min(catchmentMins, MAX_CATCHMENT_MINUTES);
+    const scaled = km * exampleMins / MAX_CATCHMENT_MINUTES;
+    const defaultKm = TRAVEL_MODES[draftMode].defaultCutoffKm;
+    const scaledText = exampleMins < MAX_CATCHMENT_MINUTES ? `, scaled to ${scaled.toFixed(scaled < 10 ? 1 : 0)} km at ${exampleMins} mins` : '';
+    pairCutoffHint.innerText = `≈ ${Math.round(km / 1.609)} miles at the ${MAX_CATCHMENT_MINUTES}-min maximum${scaledText}. `
+        + `Pairs further apart are treated as outside the catchment and never requested. Default for ${TRAVEL_MODES[draftMode].label}: ${defaultKm} km. `
+        + 'Set it too low and genuine competitors can be missed.';
+}
+
+settingInputs.travelMode.addEventListener('change', () => {
+    const km = readCutoffInput();
+    if (km !== null) draftPairCutoffKm[draftMode] = km;
+    showCutoffForMode(settingInputs.travelMode.value);
+});
+settingInputs.pairCutoff.addEventListener('input', updateCutoffHint);
+document.getElementById('btnResetCutoff').onclick = () => {
+    settingInputs.pairCutoff.value = TRAVEL_MODES[draftMode].defaultCutoffKm;
+    updateCutoffHint();
+};
 
 settingInputs.travelMode.innerHTML = Object.entries(TRAVEL_MODES)
     .map(([value, mode]) => `<option value="${value}">${mode.label}</option>`).join('');
@@ -71,6 +114,8 @@ document.getElementById('btnSettings').onclick = () => {
     settingInputs.rememberKey.checked = rememberOrsKey;
     settingInputs.travelMode.value = travelMode;
     settingInputs.roadRoutes.checked = drawRoadRoutes;
+    draftPairCutoffKm = { ...pairCutoffKm };
+    showCutoffForMode(travelMode);
     openModal('settingsModal');
 };
 
@@ -85,6 +130,9 @@ document.getElementById('btnApplySettings').onclick = () => {
     useTravelTime = settingInputs.useTravelTime.checked;
     travelMode = settingInputs.travelMode.value;
     drawRoadRoutes = settingInputs.roadRoutes.checked;
+    const cutoff = readCutoffInput();
+    if (cutoff !== null) draftPairCutoffKm[draftMode] = cutoff;
+    pairCutoffKm = { ...draftPairCutoffKm };
     orsApiKey = settingInputs.orsKey.value.trim();
     rememberOrsKey = settingInputs.rememberKey.checked;
     writeStorage(STORAGE_REMEMBER_KEY, rememberOrsKey ? 'true' : null);

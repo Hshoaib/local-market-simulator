@@ -28,8 +28,10 @@ const travelKey = (fromKey, toKey, mode = travelMode) => `${mode}|${fromKey}|${t
 const isochroneKey = (key, mode = travelMode, mins = catchmentMins) => `${mode}|${mins}|${key}`;
 const routeKey = (aKey, bKey, mode = travelMode) => `${mode}|${[aKey, bKey].sort().join('|')}`;
 
+// Straight-line distance beyond which a pair can't be within `mins` (the user's cut-off,
+// which applies at the maximum limit, scaled down proportionally).
 function maxReachKm(mode = travelMode, mins = catchmentMins) {
-    return TRAVEL_MODES[mode].maxSpeedKmh * mins / 60;
+    return pairCutoffKm[mode] * mins / MAX_CATCHMENT_MINUTES;
 }
 
 function isUnroutable(loc, mode = travelMode) {

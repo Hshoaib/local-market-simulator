@@ -24,6 +24,8 @@ let isLightMode = false;
 let useTravelTime = false;
 let travelMode = 'driving-car';
 let drawRoadRoutes = false;
+// Per travel mode: skip pairs further apart than this (km, straight line) at the maximum limit.
+let pairCutoffKm = Object.fromEntries(Object.entries(TRAVEL_MODES).map(([mode, cfg]) => [mode, cfg.defaultCutoffKm]));
 let rememberOrsKey = readStorage(STORAGE_REMEMBER_KEY) === 'true';
 let orsApiKey = rememberOrsKey ? (readStorage(STORAGE_ORS_KEY) || '') : '';
 

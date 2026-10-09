@@ -9,7 +9,7 @@
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
 
-    <link rel="stylesheet" href="css/styles.css?v=20261009">
+    <link rel="stylesheet" href="css/styles.css?v=2026100903">
 </head>
 <body>
 
@@ -67,6 +67,13 @@
 
                     <label class="field-label" for="settingTravelMode">Travel Mode</label>
                     <select id="settingTravelMode" class="vol-input panel-select"></select>
+
+                    <label class="field-label" for="settingPairCutoff">Skip location pairs further apart than (km, straight line)</label>
+                    <div class="cutoff-row">
+                        <input type="number" id="settingPairCutoff" class="vol-input" min="1" step="10">
+                        <button type="button" id="btnResetCutoff" class="add-site-btn">Default</button>
+                    </div>
+                    <p class="hint-text panel-hint" id="pairCutoffHint"></p>
 
                     <label class="toggle-label setting-toggle"><input type="checkbox" id="settingRoadRoutes"> Draw road routes for selected locations</label>
                     <p class="hint-text panel-hint">Travel times use 1 request per batch of locations. Road routes use 1 extra request per pair of locations within a catchment. Free plan: 500 travel-time and 2,000 route requests per day.</p>
@@ -131,7 +138,7 @@
                     <li>New, moved or imported locations (and all locations after switching travel mode) show <strong>Pending…</strong> (and "?" in the sidebar) until travel times are fetched. Click the <strong>refresh</strong> button at the end of the bottom toolbar; its badge shows how many locations need updating.</li>
                     <li>Changing the time limit (up to 180 minutes) reuses travel times already fetched, so results update instantly. Catchment outlines are fetched for nearby limits too; if one isn't loaded yet, a selected location shows a dashed circle until the next refresh.</li>
                     <li>OpenRouteService can only draw driving outlines up to 60 minutes. Above that, shares, distance lines and exports still use real drive times, but no outline is shown.</li>
-                    <li>Pairs of locations too far apart to be reachable within the limit (based on straight-line distance and the fastest possible speed for the mode) are skipped without using any requests.</li>
+                    <li>Pairs of locations too far apart to be reachable within the limit are skipped without using any requests. The cut-off for each travel mode can be changed in <strong>Settings</strong>; it applies at the 180-minute maximum and scales down for shorter limits.</li>
                     <li>Large refreshes are paced to the free plan's per-minute limits. Click the button again to stop; results so far are kept.</li>
                     <li>Locations with no road within ~350 m for the chosen travel mode show <strong>N/A</strong>.</li>
                 </ul>
@@ -233,14 +240,14 @@
 <script src="https://unpkg.com/papaparse@5.4.1/papaparse.min.js" crossorigin=""></script>
 
 <!-- Bump ?v= on each release so browsers fetch fresh copies instead of mixing cached versions. -->
-<script src="js/config.js?v=20261009"></script>
-<script src="js/state.js?v=20261009"></script>
-<script src="js/calc.js?v=20261009"></script>
-<script src="js/routing.js?v=20261009"></script>
-<script src="js/map.js?v=20261009"></script>
-<script src="js/sidebar.js?v=20261009"></script>
-<script src="js/actions.js?v=20261009"></script>
-<script src="js/io.js?v=20261009"></script>
-<script src="js/ui.js?v=20261009"></script>
+<script src="js/config.js?v=2026100903"></script>
+<script src="js/state.js?v=2026100903"></script>
+<script src="js/calc.js?v=2026100903"></script>
+<script src="js/routing.js?v=2026100903"></script>
+<script src="js/map.js?v=2026100903"></script>
+<script src="js/sidebar.js?v=2026100903"></script>
+<script src="js/actions.js?v=2026100903"></script>
+<script src="js/io.js?v=2026100903"></script>
+<script src="js/ui.js?v=2026100903"></script>
 </body>
 </html>

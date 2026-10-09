@@ -29,16 +29,18 @@ const STORAGE_ORS_KEY = 'sim_ors_key';
 // this, so changing the limit never needs new times.
 const MAX_CATCHMENT_MINUTES = 180;
 
-// maxSpeedKmh is an upper bound on modelled speed (ORS uses road speed limits; UK max 70 mph).
-// Road distance is never shorter than straight-line distance, so pairs further apart than
-// speed x time can't be in the catchment and are skipped without an API call.
+// defaultCutoffKm: straight-line distance beyond which a pair is skipped at the maximum limit
+// (scaled down proportionally for shorter limits). Road distance is never shorter than
+// straight-line distance, so the defaults are top speed x 3 h: car 130 km/h, HGV 110, cycling 45,
+// walking 10 (ORS uses road speed limits; UK max 70 mph). Users can change them in Settings.
 // maxOutlineMinutes is the largest catchment outline (isochrone) ORS will draw for the mode.
 const TRAVEL_MODES = {
-    'driving-car': { label: 'Driving (Car)', maxSpeedKmh: 130, maxOutlineMinutes: 60 },
-    'driving-hgv': { label: 'Driving (HGV)', maxSpeedKmh: 110, maxOutlineMinutes: 60 },
-    'cycling-regular': { label: 'Cycling (Regular)', maxSpeedKmh: 45, maxOutlineMinutes: MAX_CATCHMENT_MINUTES },
-    'foot-walking': { label: 'Walking (Pedestrian)', maxSpeedKmh: 10, maxOutlineMinutes: MAX_CATCHMENT_MINUTES }
+    'driving-car': { label: 'Driving (Car)', defaultCutoffKm: 390, maxOutlineMinutes: 60 },
+    'driving-hgv': { label: 'Driving (HGV)', defaultCutoffKm: 330, maxOutlineMinutes: 60 },
+    'cycling-regular': { label: 'Cycling (Regular)', defaultCutoffKm: 135, maxOutlineMinutes: MAX_CATCHMENT_MINUTES },
+    'foot-walking': { label: 'Walking (Pedestrian)', defaultCutoffKm: 30, maxOutlineMinutes: MAX_CATCHMENT_MINUTES }
 };
+const MAX_PAIR_CUTOFF_KM = 2000;
 
 // Free "Standard" plan limits: requests per minute (kept just under) and per day.
 const ORS_RATE_LIMITS = { matrix: 38, isochrones: 18, directions: 38 };
