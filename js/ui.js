@@ -51,7 +51,6 @@ const settingInputs = {
     pairCutoff: document.getElementById('settingPairCutoff')
 };
 const travelTimeOptions = document.getElementById('travelTimeOptions');
-const pairCutoffHint = document.getElementById('pairCutoffHint');
 
 // Cut-offs edited in the dialog, per mode, applied only on "Apply Changes".
 let draftPairCutoffKm = {};
@@ -65,22 +64,6 @@ function readCutoffInput() {
 function showCutoffForMode(mode) {
     draftMode = mode;
     settingInputs.pairCutoff.value = draftPairCutoffKm[mode];
-    updateCutoffHint();
-}
-
-function updateCutoffHint() {
-    const km = readCutoffInput();
-    if (km === null) {
-        pairCutoffHint.innerText = 'Enter a distance in km.';
-        return;
-    }
-    const exampleMins = Math.min(catchmentMins, MAX_CATCHMENT_MINUTES);
-    const scaled = km * exampleMins / MAX_CATCHMENT_MINUTES;
-    const defaultKm = TRAVEL_MODES[draftMode].defaultCutoffKm;
-    const scaledText = exampleMins < MAX_CATCHMENT_MINUTES ? `, scaled to ${scaled.toFixed(scaled < 10 ? 1 : 0)} km at ${exampleMins} mins` : '';
-    pairCutoffHint.innerText = `≈ ${Math.round(km / 1.609)} miles at the ${MAX_CATCHMENT_MINUTES}-min maximum${scaledText}. `
-        + `Pairs further apart are treated as outside the catchment and never requested. Default for ${TRAVEL_MODES[draftMode].label}: ${defaultKm} km. `
-        + 'Set it too low and genuine competitors can be missed.';
 }
 
 settingInputs.travelMode.addEventListener('change', () => {
@@ -88,10 +71,8 @@ settingInputs.travelMode.addEventListener('change', () => {
     if (km !== null) draftPairCutoffKm[draftMode] = km;
     showCutoffForMode(settingInputs.travelMode.value);
 });
-settingInputs.pairCutoff.addEventListener('input', updateCutoffHint);
 document.getElementById('btnResetCutoff').onclick = () => {
     settingInputs.pairCutoff.value = TRAVEL_MODES[draftMode].defaultCutoffKm;
-    updateCutoffHint();
 };
 
 settingInputs.travelMode.innerHTML = Object.entries(TRAVEL_MODES)

@@ -9,7 +9,7 @@
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
 
-    <link rel="stylesheet" href="css/styles.css?v=2026100903">
+    <link rel="stylesheet" href="css/styles.css?v=2026100904">
 </head>
 <body>
 
@@ -73,10 +73,10 @@
                         <input type="number" id="settingPairCutoff" class="vol-input" min="1" step="10">
                         <button type="button" id="btnResetCutoff" class="add-site-btn">Default</button>
                     </div>
-                    <p class="hint-text panel-hint" id="pairCutoffHint"></p>
+                    <p class="hint-text panel-hint">A low value risks missing genuine competitors</p>
 
-                    <label class="toggle-label setting-toggle"><input type="checkbox" id="settingRoadRoutes"> Draw road routes for selected locations</label>
-                    <p class="hint-text panel-hint">Travel times use 1 request per batch of locations. Road routes use 1 extra request per pair of locations within a catchment. Free plan: 500 travel-time and 2,000 route requests per day.</p>
+                    <label class="toggle-label setting-toggle"><input type="checkbox" id="settingRoadRoutes"> Visualise fastest route on the map</label>
+                    <p class="hint-text panel-hint">Plotting routes requires a separate API call for each pair of locations. Max 2,000 requests per day</p>
                 </div>
 
                 <h3>Node Scaling (Visual)</h3>
@@ -240,14 +240,14 @@
 <script src="https://unpkg.com/papaparse@5.4.1/papaparse.min.js" crossorigin=""></script>
 
 <!-- Bump ?v= on each release so browsers fetch fresh copies instead of mixing cached versions. -->
-<script src="js/config.js?v=2026100903"></script>
-<script src="js/state.js?v=2026100903"></script>
-<script src="js/calc.js?v=2026100903"></script>
-<script src="js/routing.js?v=2026100903"></script>
-<script src="js/map.js?v=2026100903"></script>
-<script src="js/sidebar.js?v=2026100903"></script>
-<script src="js/actions.js?v=2026100903"></script>
-<script src="js/io.js?v=2026100903"></script>
-<script src="js/ui.js?v=2026100903"></script>
+<script src="js/config.js?v=2026100904"></script>
+<script src="js/state.js?v=2026100904"></script>
+<script src="js/calc.js?v=2026100904"></script>
+<script src="js/routing.js?v=2026100904"></script>
+<script src="js/map.js?v=2026100904"></script>
+<script src="js/sidebar.js?v=2026100904"></script>
+<script src="js/actions.js?v=2026100904"></script>
+<script src="js/io.js?v=2026100904"></script>
+<script src="js/ui.js?v=2026100904"></script>
 </body>
 </html>
